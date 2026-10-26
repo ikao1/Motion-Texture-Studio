@@ -2726,12 +2726,16 @@ def _no_mesh(layout):
 
 
 def _ui_apply(layout, s):
-    row = layout.row(align=True)
-    row.operator("motiontexture.apply", icon="PLAY")
-    row.operator("motiontexture.rebuild", text="", icon="FILE_REFRESH")
-    row = layout.row(align=True)
-    row.operator("motiontexture.apply_all", icon="DUPLICATE")
-    row.operator("motiontexture.revert_still", icon="LOOP_BACK")
+    box = layout.box()
+    box.label(text="Apply Material", icon="MATERIAL")
+    row = box.row(align=True)
+    row.scale_y = 1.2
+    row.operator("motiontexture.apply", text="Apply to Selected", icon="PLAY")
+    row = box.row(align=True)
+    row.operator("motiontexture.apply_all", text="Apply to All Selected", icon="DUPLICATE")
+    row = box.row(align=True)
+    row.operator("motiontexture.rebuild", text="Rebuild Material", icon="FILE_REFRESH")
+    row.operator("motiontexture.revert_still", text="Revert to Still", icon="LOOP_BACK")
 
 
 def _ui_source(layout, context, s):
@@ -2739,35 +2743,44 @@ def _ui_source(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    row = col.row(align=True)
-    row.operator("motiontexture.open_still", text="Still", icon="IMAGE_DATA")
-    row.operator("motiontexture.open_sequence", text="Sequence", icon="SEQUENCE")
-    row.operator("motiontexture.open_movie", text="Movie", icon="FILE_MOVIE")
-    row = col.row(align=True)
-    row.menu("MOTIONTEXTURE_MT_recent", text="Recent", icon="DISC")
-    row.operator("motiontexture.open_path", text="Folder", icon="FILE_FOLDER")
+    box = col.box()
+    box.label(text="Add Source", icon="FILEBROWSER")
+    row = box.row(align=True)
+    row.operator("motiontexture.open_still", text="Still Image", icon="FILE_IMAGE")
+    row.operator("motiontexture.open_sequence", text="Image Sequence", icon="SEQUENCE")
+    row = box.row(align=True)
+    row.operator("motiontexture.open_movie", text="Movie / Video", icon="FILE_MOVIE")
+    row.menu("MOTIONTEXTURE_MT_recent", text="Recent", icon="TIME")
+    row = box.row(align=True)
+    row.operator("motiontexture.open_path", text="By File Path", icon="LINKED")
+    row.operator("motiontexture.clear_source", text="Clear", icon="X")
+
     if s.source_path:
-        col.label(text=os.path.basename(s.source_path), icon="FILE")
-    row = col.row(align=True)
-    row.operator("motiontexture.refresh_source", icon="FILE_REFRESH")
-    row.operator("motiontexture.clear_source", icon="X")
-    col.prop(s, "source_mode")
-    if s.source_mode in {"SEQUENCE", "MOVIE"}:
-        row = col.row(align=True)
-        row.prop(s, "frame_start")
-        row.prop(s, "frame_end")
-        col.prop(s, "frame_offset")
-        col.prop(s, "loop_mode")
-    col.prop(s, "fps")
-    col.prop(s, "color_space")
-    col.prop(s, "auto_fit", toggle=True)
-    if s.image is not None:
-        try:
-            width, height = s.image.size
-            col.label(text="%d x %d px" % (width, height), icon="INFO")
-        except Exception:
-            pass
-    col.label(text="Drop an image or movie into the viewport", icon="IMPORT")
+        box = col.box()
+        box.label(text="Source Details", icon="INFO")
+        box.label(text=os.path.basename(s.source_path))
+        if s.source_mode in {"SEQUENCE", "MOVIE"}:
+            row = box.row(align=True)
+            row.prop(s, "frame_start")
+            row.prop(s, "frame_end")
+            col = box.column(align=True)
+            col.prop(s, "frame_offset")
+            col.prop(s, "loop_mode")
+        col = box.column(align=True)
+        col.prop(s, "fps")
+        col.prop(s, "color_space")
+        col.prop(s, "auto_fit", toggle=True)
+        if s.image is not None:
+            try:
+                width, height = s.image.size
+                box.label(text="%d × %d px" % (width, height), icon="INFO")
+            except Exception:
+                pass
+
+    box = col.box()
+    box.label(text="Optional", icon="OPTIONS")
+    box.prop(s, "normal_image", text="Normal Map")
+    box.operator("motiontexture.open_normal", text="Load Normal Map", icon="FILE_IMAGE")
 
 
 def _ui_playback(layout, context, s):
@@ -2775,24 +2788,27 @@ def _ui_playback(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    row = col.row(align=True)
+    box = col.box()
+    box.label(text="Timeline Control", icon="PLAY")
+    row = box.row(align=True)
     row.operator("motiontexture.play", text="Play / Pause", icon="PLAY")
     previous = row.operator("motiontexture.frame_step", text="", icon="TRIA_LEFT")
     previous.direction = -1
     following = row.operator("motiontexture.frame_step", text="", icon="TRIA_RIGHT")
     following.direction = 1
-    col.prop(context.scene, "frame_current", text="Frame")
-    row = col.row(align=True)
-    row.prop(context.scene, "frame_start")
-    row.prop(context.scene, "frame_end")
-    col.prop(s, "preview_on_selected", toggle=True)
-    col.operator("motiontexture.preview_render", icon="RENDER_STILL")
-    if s.image is not None and s.source_path:
-        col.separator()
-        col.label(text="Bake to PNG", icon="IMAGE_DATA")
-        row = col.row(align=True)
-        row.operator("motiontexture.bake_frame", text="Frame", icon="RENDER_STILL")
-        row.operator("motiontexture.bake_sequence", text="Sequence", icon="RENDER_ANIMATION")
+    box.prop(context.scene, "frame_current", text="Current Frame")
+    row = box.row(align=True)
+    row.prop(context.scene, "frame_start", text="Start")
+    row.prop(context.scene, "frame_end", text="End")
+    box.prop(s, "preview_on_selected", toggle=True)
+    box.operator("motiontexture.preview_render", text="Preview Render", icon="RENDER_STILL")
+
+    box = col.box()
+    box.label(text="Bake (Save to Images)", icon="IMAGE_DATA")
+    row = box.row(align=True)
+    row.operator("motiontexture.bake_frame", text="Bake Current Frame", icon="RENDER_STILL")
+    row.operator("motiontexture.bake_sequence", text="Bake Animation", icon="RENDER_ANIMATION")
+    box.label(text="Saves PNG files next to your source", icon="INFO")
 
 
 def _ui_animation(layout, context, s):
@@ -2800,16 +2816,20 @@ def _ui_animation(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    col.prop(s, "enable_animation", toggle=True)
-    col.prop(s, "speed")
-    col.prop(s, "stop_motion", toggle=True)
+    box = col.box()
+    box.label(text="Animation Settings", icon="SETTINGS")
+    box.prop(s, "enable_animation", toggle=True)
+    box.prop(s, "speed")
+    box.prop(s, "stop_motion", toggle=True)
     if s.stop_motion:
-        col.prop(s, "step_frames")
-    col.prop(s, "interpolation")
-    col.prop(s, "animate_relief", toggle=True)
-    col.separator()
-    col.label(text="Motion Presets (one %d-frame cycle, repeats)" % _cycle_frames(s), icon="PRESET")
-    grid = col.grid_flow(columns=2, even_columns=True, align=True)
+        box.prop(s, "step_frames")
+    box.prop(s, "interpolation")
+    box.prop(s, "animate_relief", toggle=True)
+
+    box = col.box()
+    box.label(text="Pick a Motion Style", icon="PRESET")
+    box.label(text="One-cycle presets that repeat automatically", icon="INFO")
+    grid = box.grid_flow(columns=2, even_columns=True, align=True)
     for key, label, description in MOTION_PRESETS:
         operator = grid.operator("motiontexture.motion_preset", text=label)
         operator.preset = key
@@ -2818,21 +2838,23 @@ def _ui_animation(layout, context, s):
         except Exception:
             pass
     if s.last_motion_preset:
-        col.label(text="Active motion: %s" % s.last_motion_preset.title(), icon="CHECKMARK")
-    col.separator()
-    col.label(text="Keyframe Tools", icon="KEY_HLT")
-    row = col.row(align=True)
+        box.label(text="Active: %s" % s.last_motion_preset.title(), icon="CHECKMARK")
+
+    box = col.box()
+    box.label(text="Keyframes & Controls", icon="KEY_HLT")
+    row = box.row(align=True)
     row.operator("motiontexture.key_all", text="Key at Frame", icon="KEY_HLT")
     row.operator("motiontexture.delete_key", text="Delete Key", icon="KEY_DEHLT")
-    col.operator("motiontexture.copy_still", text="Copy Still Values to Frame 1", icon="DUPLICATE")
-    col.operator("motiontexture.clear_animation", text="Clear Animation", icon="X")
-    col.separator()
-    col.label(text="Batch Apply (staggered keys)", icon="DUPLICATE")
-    col.prop(s, "spread_frames")
-    row = col.row(align=True)
-    row.operator("motiontexture.apply_all", text="Apply to All", icon="DUPLICATE")
+    box.operator("motiontexture.copy_still", text="Copy Still to Frame 1", icon="DUPLICATE")
+    box.operator("motiontexture.clear_animation", text="Clear All Animation", icon="X")
+
+    box = col.box()
+    box.label(text="Apply to Multiple Objects", icon="DUPLICATE")
+    box.label(text="Select source + targets, then click below", icon="INFO")
+    box.prop(s, "spread_frames")
+    box.operator("motiontexture.apply_all", text="Apply to All Selected (with offset)", icon="DUPLICATE")
     if s.enable_animation:
-        col.label(text="Animation is active", icon="ANIM")
+        box.label(text="Animation is enabled", icon="ANIM")
 
 
 def _ui_raised(layout, context, s):
@@ -2931,40 +2953,47 @@ def _ui_transform(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    col.prop(s, "scale")
-    col.prop(s, "scale_z")
-    row = col.row(align=True)
+    box = col.box()
+    box.label(text="Size & Tiling", icon="FULLSCREEN_ENTER")
+    box.prop(s, "scale")
+    box.prop(s, "scale_z")
+    row = box.row(align=True)
     row.prop(s, "tiling_x")
     row.prop(s, "tiling_y")
-    col.separator()
-    col.label(text="Rotation", icon="ORIENTATION_GLOBAL")
-    col.prop(s, "rotation_x")
-    col.prop(s, "rotation_y")
-    row = col.row(align=True)
-    row.prop(s, "rotation", text="Z")
+
+    box = col.box()
+    box.label(text="Rotation", icon="ORIENTATION_GLOBAL")
+    box.prop(s, "rotation_x")
+    box.prop(s, "rotation_y")
+    row = box.row(align=True)
+    row.prop(s, "rotation", text="Z Rotation")
     back = row.operator("motiontexture.rotate", text="", icon="LOOP_BACK")
     back.angle = -90.0
     forward = row.operator("motiontexture.rotate", text="", icon="LOOP_FORWARDS")
     forward.angle = 90.0
-    col.separator()
-    col.label(text="Offset", icon="TRIA_UP")
-    col.prop(s, "offset_x")
-    col.prop(s, "offset_y")
-    col.prop(s, "offset_z")
-    row = col.row(align=True)
+
+    box = col.box()
+    box.label(text="Position & Flip", icon="ARROW_LEFTRIGHT")
+    box.prop(s, "offset_x")
+    box.prop(s, "offset_y")
+    box.prop(s, "offset_z")
+    row = box.row(align=True)
     row.prop(s, "flip_x", toggle=True)
     row.prop(s, "flip_y", toggle=True)
-    col.separator()
-    col.operator("motiontexture.reset_transform", icon="LOOP_BACK")
-    col.operator("motiontexture.cleanup_materials", icon="BRUSH_DATA")
-    col.separator()
-    col.label(text="Fit to Object", icon="UV")
-    row = col.row(align=True)
-    every = row.operator("motiontexture.fit_surface", text="Every Face", icon="FACESEL")
+
+    box = col.box()
+    box.label(text="Quick Tools", icon="TOOL_SETTINGS")
+    box.operator("motiontexture.reset_transform", text="Reset Transform", icon="LOOP_BACK")
+    box.operator("motiontexture.cleanup_materials", text="Clean Up Materials", icon="BRUSH_DATA")
+
+    box = col.box()
+    box.label(text="Fix UVs for This Object", icon="UV")
+    box.label(text="Great for cubes - fixes sideways images", icon="INFO")
+    row = box.row(align=True)
+    every = row.operator("motiontexture.fit_surface", text="Fit Every Face", icon="FACESEL")
     every.face = "ALL"
-    front = row.operator("motiontexture.fit_surface", text="Front", icon="SNAP_FACE")
+    front = row.operator("motiontexture.fit_surface", text="Fit Front Face", icon="SNAP_FACE")
     front.face = "FRONT"
-    col.label(text="Uses this on cubes to stop the image showing sideways", icon="INFO")
 
 
 def _ui_emission(layout, context, s):
@@ -2982,26 +3011,30 @@ def _ui_presets(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    col.label(text="Surface Presets", icon="MATERIAL")
-    grid = col.grid_flow(columns=3, even_columns=True, align=True)
+    box = col.box()
+    box.label(text="Surface Style Presets", icon="MATERIAL")
+    grid = box.grid_flow(columns=3, even_columns=True, align=True)
     for key in SURFACE_PRESETS:
         operator = grid.operator("motiontexture.surface_preset", text=SURFACE_PRESETS[key]["label"])
         operator.preset = key
-    col.separator()
-    col.label(text="Saved Motion Presets", icon="PRESET")
-    col.operator("motiontexture.save_preset", text="Save Motion Preset", icon="ADD")
-    col.menu("MOTIONTEXTURE_MT_presets", text="Load Motion Preset", icon="PRESET")
-    col.menu("MOTIONTEXTURE_MT_rename_preset", text="Rename Motion Preset", icon="GREASEPENCIL")
-    row = col.row(align=True)
+
+    box = col.box()
+    box.label(text="Save Your Settings", icon="PRESET")
+    box.operator("motiontexture.save_preset", text="Save Current Setup", icon="ADD")
+    box.menu("MOTIONTEXTURE_MT_presets", text="Load Saved Setup", icon="PRESET")
+    box.menu("MOTIONTEXTURE_MT_rename_preset", text="Rename Saved Setup", icon="GREASEPENCIL")
+    row = box.row(align=True)
     row.operator("motiontexture.import_preset", text="Import", icon="IMPORT")
     row.operator("motiontexture.export_preset", text="Export", icon="EXPORT")
-    col.menu("MOTIONTEXTURE_MT_delete_preset", text="Delete Motion Preset", icon="TRASH")
-    col.separator()
-    col.menu("MOTIONTEXTURE_MT_reset", text="Reset", icon="LOOP_BACK")
+    box.menu("MOTIONTEXTURE_MT_delete_preset", text="Delete Saved Setup", icon="TRASH")
+
+    box = col.box()
+    box.label(text="Reset Options", icon="LOOP_BACK")
+    box.menu("MOTIONTEXTURE_MT_reset", text="Reset to Defaults...", icon="LOOP_BACK")
 
 
 class MOTIONTEXTURE_PT_main(bpy.types.Panel):
-    bl_label = "Motion Texture"
+    bl_label = "Motion Texture Studio"
     bl_idname = "MOTIONTEXTURE_PT_main"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -3012,25 +3045,51 @@ class MOTIONTEXTURE_PT_main(bpy.types.Panel):
         obj = context.active_object
         s = _settings(context)
         if s is None:
-            layout.label(text="Select a mesh object", icon="INFO")
+            box = layout.box()
+            box.label(text="Select a Mesh Object", icon="INFO")
+            box.label(text="Start by selecting a cube or mesh in your scene.")
             return
+
+        layout.label(text="Quick Start Guide", icon="QUESTION")
+        box = layout.box()
         if s.image is None:
-            box = layout.box()
-            box.label(text="1. Open a source image", icon="IMAGE_DATA")
-            box.operator("motiontexture.open_still", text="Choose Image", icon="FILEBROWSER")
-        elif not s.enable_animation:
-            box = layout.box()
-            box.label(text="2. Add motion with a preset", icon="ANIM")
-            box.label(text="Animate Texture section below", icon="DOWNARROW_HLT")
+            box.label(text="Step 1: Add your image/video", icon="NUMBER_1")
+            col = box.column(align=True)
+            col.operator("motiontexture.open_still", text="Open Still Image", icon="FILE_IMAGE")
+            col.operator("motiontexture.open_sequence", text="Open Image Sequence", icon="SEQUENCE")
+            col.operator("motiontexture.open_movie", text="Open Movie/Video", icon="FILE_MOVIE")
         else:
-            layout.label(text="Animated: %s" % (s.last_motion_preset.title() or "custom"), icon="ANIM")
-        layout.label(text="Object: %s" % obj.name, icon="OBJECT_DATAMODE")
+            box.label(text="Step 1: Source loaded ✓", icon="CHECKMARK")
+            box.label(text="  %s" % s.image.name, icon="IMAGE_DATA")
+
+        if s.image is not None and not s.enable_animation:
+            box = layout.box()
+            box.label(text="Step 2: Add motion", icon="NUMBER_2")
+            box.label(text="Go to 'Animate' below or pick a preset.", icon="INFO")
+        elif s.image is not None and s.enable_animation:
+            box = layout.box()
+            box.label(text="Step 2: Motion added ✓", icon="CHECKMARK")
+            if s.last_motion_preset:
+                box.label(text="  Preset: %s" % s.last_motion_preset.title(), icon="ANIM")
+
+        box = layout.box()
+        box.label(text="Step 3: Apply to your object", icon="NUMBER_3")
+        box.label(text="Click below to build/update the material.", icon="INFO")
+
+        layout.separator()
+        layout.label(text="Current Object", icon="OBJECT_DATAMODE")
+        layout.label(text=obj.name)
         if s.image is not None:
-            layout.label(text=s.image.name, icon="IMAGE_DATA")
+            layout.label(text="Source: %s" % s.image.name, icon="IMAGE_DATA")
+
         if obj.type == "MESH" and len(obj.data.polygons) > 1:
+            layout.separator()
             row = layout.row(align=True)
-            every = row.operator("motiontexture.fit_surface", text="Fit to Object", icon="UV")
+            every = row.operator("motiontexture.fit_surface", text="Quick Fit to Object", icon="UV")
             every.face = "ALL"
+            layout.label(text="Fixes sideways images on cubes", icon="INFO")
+
+        layout.separator()
         _ui_apply(layout, s)
 
 
@@ -3050,16 +3109,16 @@ def _make_section(name, label, icon, order, draw_fn, default_closed=True):
     })
 
 
-MOTIONTEXTURE_PT_source = _make_section("source", "Source", "IMAGE_DATA", 0, _ui_source)
-MOTIONTEXTURE_PT_playback = _make_section("playback", "Playback", "PLAY", 1, _ui_playback)
-MOTIONTEXTURE_PT_animation = _make_section("animation", "Animate Texture", "ANIM", 2, _ui_animation)
-MOTIONTEXTURE_PT_raised = _make_section("raised", "Raised Surface", "MODIFIER", 3, _ui_raised)
-MOTIONTEXTURE_PT_colour = _make_section("colour", "Color", "COLOR", 4, _ui_color)
-MOTIONTEXTURE_PT_transform = _make_section("transform", "Transform", "UV", 5, _ui_transform, default_closed=False)
-MOTIONTEXTURE_PT_surface = _make_section("surface", "Surface", "MATERIAL", 6, _ui_surface)
-MOTIONTEXTURE_PT_surface_advanced = _make_section("surface_advanced", "Surface Advanced", "SHADERFX", 7, _ui_surface_advanced)
-MOTIONTEXTURE_PT_emission = _make_section("emission", "Emission", "LIGHT", 8, _ui_emission)
-MOTIONTEXTURE_PT_presets = _make_section("presets", "Presets", "PRESET", 9, _ui_presets)
+MOTIONTEXTURE_PT_source = _make_section("source", "1) Source (Image/Video)", "IMAGE_DATA", 0, _ui_source)
+MOTIONTEXTURE_PT_playback = _make_section("playback", "2) Preview & Playback", "PLAY", 1, _ui_playback)
+MOTIONTEXTURE_PT_animation = _make_section("animation", "3) Animate", "ANIM", 2, _ui_animation)
+MOTIONTEXTURE_PT_raised = _make_section("raised", "4) Raised/Bump", "MODIFIER", 3, _ui_raised)
+MOTIONTEXTURE_PT_colour = _make_section("colour", "5) Color", "COLOR", 4, _ui_color)
+MOTIONTEXTURE_PT_transform = _make_section("transform", "6) UV/Transform", "UV", 5, _ui_transform, default_closed=False)
+MOTIONTEXTURE_PT_surface = _make_section("surface", "7) Surface Look", "MATERIAL", 6, _ui_surface)
+MOTIONTEXTURE_PT_surface_advanced = _make_section("surface_advanced", "Advanced Surface", "SHADERFX", 7, _ui_surface_advanced)
+MOTIONTEXTURE_PT_emission = _make_section("emission", "Glow/Emission", "LIGHT", 8, _ui_emission)
+MOTIONTEXTURE_PT_presets = _make_section("presets", "Presets & Reset", "PRESET", 9, _ui_presets)
 
 
 _classes = (
