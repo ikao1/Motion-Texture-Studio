@@ -1973,6 +1973,65 @@ class MOTIONTEXTURE_OT_reset_transform(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class MOTIONTEXTURE_OT_cleanup_materials(bpy.types.Operator):
+    bl_idname = "motiontexture.cleanup_materials"
+    bl_label = "Clean Up Materials"
+    bl_description = "Use only the Motion Texture material for all faces and remove unused material slots"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
+
+    def execute(self, context):
+        obj = context.active_object
+        if obj is None or obj.type != "MESH":
+            self.report({"WARNING"}, "Select a mesh object first")
+            return {"CANCELLED"}
+        mat = _get_material(obj)
+        if mat is None:
+            self.report({"WARNING"}, "No Motion Texture material found")
+            return {"CANCELLED"}
+        data = obj.data
+        slots = data.materials
+        if mat not in slots:
+            slots.append(mat)
+        index = slots.find(mat.name)
+        if index < 0:
+            self.report({"WARNING"}, "Could not find Motion Texture material slot")
+            return {"CANCELLED"}
+        obj.active_material_index = index
+        if data.polygons:
+            for poly in data.polygons:
+                poly.material_index = index
+        removed = 0
+        for i in range(len(slots) - 1, -1, -1):
+            if i == index:
+                continue
+            slot_mat = slots[i]
+            if slot_mat is None:
+                slots.pop(i)
+                removed += 1
+                if index > i:
+                    index -= 1
+                continue
+            used = any(poly.material_index == i for poly in data.polygons)
+            if not used:
+                slots.pop(i)
+                removed += 1
+                if index > i:
+                    index -= 1
+        if removed:
+            obj.active_material_index = index
+            self.report({"INFO"}, "Cleaned up %d unused material slot%s" % (removed, "" if removed == 1 else "s"))
+        else:
+            self.report({"INFO"}, "No unused material slots to remove")
+        for window in context.window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == "VIEW_3D":
+                    area.tag_redraw()
+        return {"FINISHED"}
+
+
 class MOTIONTEXTURE_OT_fit_surface(bpy.types.Operator):
     bl_idname = "motiontexture.fit_surface"
     bl_label = "Fit Image to Surface"
@@ -2897,6 +2956,7 @@ def _ui_transform(layout, context, s):
     row.prop(s, "flip_y", toggle=True)
     col.separator()
     col.operator("motiontexture.reset_transform", icon="LOOP_BACK")
+    col.operator("motiontexture.cleanup_materials", icon="BRUSH_DATA")
     col.separator()
     col.label(text="Fit to Object", icon="UV")
     row = col.row(align=True)
@@ -3019,6 +3079,7 @@ _classes = (
     MOTIONTEXTURE_OT_relief_motion,
     MOTIONTEXTURE_OT_rotate,
     MOTIONTEXTURE_OT_reset_transform,
+    MOTIONTEXTURE_OT_cleanup_materials,
     MOTIONTEXTURE_OT_fit_surface,
     MOTIONTEXTURE_OT_surface_preset,
     MOTIONTEXTURE_OT_reset_section,
