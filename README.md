@@ -44,7 +44,11 @@ Sidebar tab **Motion Texture** (`N`), collapsible sections:
   - Normal Map field + `Load Normal Map…`, Normal Strength
   - Raised presets: Drift, Pulse, Ripple, Crawl, Breathe
 - **Transform**
-  - Scale, Tiling X/Y, Rotation (with -90°/+90° buttons), Offset X/Y, Flip X/Y
+  - Scale, **Scale Z**, Tiling X/Y
+  - **Rotation X/Y/Z** (X/Y tilt, Z with -90°/+90° buttons)
+  - **Offset X/Y/Z**, Flip X/Y
+  - **Reset Transform** — restore scale, tiling, rotation (X/Y/Z), offset (X/Y/Z), scale Z, and flips to defaults
+  - **Clean Up Materials** — assign the Motion Texture material to all faces and remove unused material slots (fixes stray default materials)
   - `Fit to Object` — rewrite the object's UVs so the image fills every face upright (`Every Face`) or a single front face (`Front`). Use this on cubes and multi-face objects, where a single image otherwise shows sideways or split across the default UV islands
 - **Surface** (kept from v1.8)
   - Roughness, Metallic, Specular, IOR, Coat, Coat Roughness, Sheen, Sheen Roughness, Anisotropic, Subsurface, Transmission, Alpha
