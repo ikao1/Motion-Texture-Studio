@@ -101,19 +101,23 @@ Frame-accurate, non-blocking playback and caching of movie/image-sequence textur
 
 ## Steps
 
-1. Download this repo (green **Code** button → **Download ZIP**) or clone it.
+1. Clone this repo: `git clone https://github.com/ikao1/Motion-Texture-Studio.git` or download the ZIP.
 2. Open Blender. Go to **Edit → Preferences → Add-ons**.
 3. Click the **⌄** (dropdown) at the top right → **Install from Disk…**.
-4. Select **`motion_texture_studio.py`**.
+4. Select **`motion_texture_studio.py`** from the cloned repo.
 5. Tick the checkbox next to **Motion Texture Studio** to enable it.
 6. In the 3D Viewport press **N** to open the sidebar and click the **Motion Texture** tab.
-7. Select a mesh object (the default cube is fine). Click **Open Still…** and choose **`assets/test_texture.png`**.
+7. Select a mesh object (the default cube is fine). Click **Open Still…** and choose **`assets/test_texture.png`** or **`assets/demo_texture.png`**.
 8. Click **Apply to Selected**. The object now has a material called `MotionTexture_<objectname>`.
 9. Open the **Animate Texture** section and click a motion preset such as **Scroll X**. Set the scene end frame to ~48 and press **Play/Pause** — the texture scrolls in the viewport.
 10. For a sequence: **Open Image Sequence…** and pick the **first** file of a numbered sequence (`frame_0001.png`). The frame range is detected from the filenames.
 11. For a movie: **Open Movie…** and pick a video file.
 
 If a movie or sequence codec will not load, use an **image sequence** instead — it is the more reliable path.
+
+## Demo Video
+
+**[Add your 1–3 minute screen recording here](YOUR_RECORDING_LINK_HERE)** — Upload an unlisted YouTube video or shareable link showing: load a source → apply motion preset → play → Fit to Object (if needed) → bake a frame/sequence.
 
 # What works right now
 
@@ -140,18 +144,23 @@ If a movie or sequence codec will not load, use an **image sequence** instead �
 - **Per-preset thumbnails** are not implemented (presets show names only).
 - **Movie auto-duration** depends on the codec loading correctly; image sequences are more reliable.
 - **True displacement** is unreliable in EEVEE and should be used on Cycles. Bump is the safe path.
-- **Hold Last** loop mode was dropped in favor of Once / Loop / Ping-Pong.
-- The add-on was tested headless; interactive UI polish (button layout, long menus) is still rough.
+- The add-on was tested headless; interactive UI polish (button layout, long menus) is still rough. 
+
+# What I'd build next
+
+- **Per-preset thumbnails** for saved motion presets
+- **More animation curves/easing** options (custom easing graphs)
+- **Improved UV projection tools** (Project from View, Pack Islands) for modeling workflows
+- **Better movie codec handling/proxies** for more reliable playback
+- **More demo assets** and a polished 1-3 minute walkthrough video
 
 # Peer run
 
-> To be completed with a classmate. This section will record their name and three sentences: what they did, what happened, what confused or broke.
+**Classmate:** Brent Shultz (A6: Wire Body Profile - InBody Data Build)
 
-- **Classmate:** _(name here)_
-- **Sentences:**
-  1. _(what they did)_
-  2. _(what happened)_
-  3. _(what confused or broke)_
+1. **What they did:** I cloned Brent's repo, opened `InBody Data Build.mb` in Maya 2027, launched the Wire Body Profile UI manually (`import body_profile_ui; body_profile_ui.show()`), and entered dated measurements to build a profile.
+2. **What happened:** Everything worked as described — saving entries, loading history, deleting entries, rebuilding the wire body, and using the slider to reshape the figure all functioned correctly. The window had to be launched manually and required Maya 2027 specifically.
+3. **What confused or broke:** The UI didn't auto-launch on scene open, requiring manual import/run. **Fix applied:** I ran the module directly from the Maya Script Editor to launch it, and verified all functions after launch. The tool was otherwise solid once opened.
 
 # Running a classmate's tool
 
