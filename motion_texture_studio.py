@@ -3173,6 +3173,7 @@ class MOTIONTEXTURE_PT_main(bpy.types.Panel):
         box = layout.box()
         if s.image is None:
             box.label(text="Step 1: Add your image/video", icon="NUMBER_1")
+            box.label(text="Pick a still, sequence or movie:", icon="INFO")
             col = box.column(align=True)
             _op(col, "motiontexture.open_still", "Open Still Image", "mts_source", "FILE_IMAGE")
             _op(col, "motiontexture.open_sequence", "Open Image Sequence", "mts_source", "SEQUENCE")
@@ -3181,19 +3182,31 @@ class MOTIONTEXTURE_PT_main(bpy.types.Panel):
             box.label(text="Step 1: Source loaded ✓", icon="CHECKMARK")
             box.label(text="  %s" % s.image.name, icon="IMAGE_DATA")
 
-        if s.image is not None and not s.enable_animation:
-            box = layout.box()
+        box = layout.box()
+        if s.image is None:
             box.label(text="Step 2: Add motion", icon="NUMBER_2")
-            box.label(text="Go to 'Animate' below or pick a preset.", icon="INFO")
-        elif s.image is not None and s.enable_animation:
-            box = layout.box()
+            box.label(text="Load a source first (Step 1).", icon="INFO")
+        elif not s.enable_animation:
+            box.label(text="Step 2: Add motion", icon="NUMBER_2")
+            box.label(text="Open '3) Animate' below, then:", icon="INFO")
+            box.label(text="  • tick Enable Animation", icon="DOT")
+            box.label(text="  • or pick a Motion Style preset", icon="DOT")
+        else:
             box.label(text="Step 2: Motion added ✓", icon="CHECKMARK")
             if s.last_motion_preset:
                 box.label(text="  Preset: %s" % s.last_motion_preset.title(), icon="ANIM")
+            else:
+                box.label(text="  Animation is enabled", icon="ANIM")
 
         box = layout.box()
         box.label(text="Step 3: Apply to your object", icon="NUMBER_3")
-        box.label(text="Click below to build/update the material.", icon="INFO")
+        if s.image is None:
+            box.label(text="Finish Step 1 first, then apply.", icon="INFO")
+        else:
+            box.label(text="Build the material on this object:", icon="INFO")
+            row = box.row(align=True)
+            row.scale_y = 1.2
+            _op(row, "motiontexture.apply", "Apply to This Object", "mts_apply", "CHECKMARK")
 
         layout.separator()
         layout.label(text="Current Object", icon="OBJECT_DATAMODE")
