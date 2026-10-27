@@ -8,11 +8,13 @@ bl_info = {
     "category": "Material",
 }
 
+import base64
 import json
 import math
 import os
 import re
 import struct
+import tempfile
 from collections import defaultdict
 from contextlib import contextmanager
 
@@ -30,6 +32,111 @@ IMAGE_EXT_SET = {".png", ".jpg", ".jpeg", ".jpe", ".bmp", ".tga", ".tif", ".tiff
 MOVIE_EXT_SET = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 RECENT_SOURCES_FILE = "recent_sources.json"
 MAX_RECENT_SOURCES = 8
+
+# --- Color-coded tool icons -------------------------------------------------
+# Blender's built-in icons are monochrome. To color-code each tool we ship a
+# small set of pre-colored PNGs (base64) and load them into a preview
+# collection at register time. Panels without a preview collection (or during
+# reload) fall back to the built-in icon name in _ICON_FALLBACKS.
+ICONS = {
+    "mts_source": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAA90lEQVR42u2a3Q2CQBCEYWI9UgA2gAVLA1IANKRPmovRA+72F3efIfmGnV2ODE0TpVvtlovO99tDA265XNsqAVrge4TAOvwaC6zDrzHBA3yODV7gfzHC+xqFp6f/jfU4HQgBIaCsTqU3zv1ADtNNY1jofyxU23oqK5J3YO4HlvkQEZCCS4kAB7ykiNhCuUGuGW6VDqTAEvAsFuqm8Q3vegZe8DkRFALBCS+xjcANzy0KEvB7bGX+PUBtJ1gFExWgBR9HiRCg+UUmddYJC4UAKQFbAjUrlbIey0IeuvDJiJJs1lLcitKA2UpWjJqU3ELQ7f5XgyjtegJ6D2ICWcaOjQAAAABJRU5ErkJggg==",
+    "mts_playback": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAA9klEQVR42u2aQQ7CMAwEG6uvgpeVB8DLyrfKFSGgTWLvrqv4nMNM7DhR3WkawY1yZNHlvm0MuOetlC4BFniNiKnD77GYOvwek2WA/8dmWeB/MVr2NmqZdv8b63kyMAQyC6zLCTKwLhwR9xJCi4SdAZRE6CFGZAPShSJFoG00QoRyD3iKUC8yDxGJm7hHQuYp0ZoNubdQrcisJnB91K2fs4JLlVArPD0DPeBUAQ9wioAnOFQgAhwiEAke3oUQ8CEZQIG7C6DBXUuIBT8+bEkJHBmoqcQ767lKKEMWPhmtZTarNG611gGzyqzYeqbkCoPu9L8ajGDHC2Q9V5bFo4EpAAAAAElFTkSuQmCC",
+    "mts_animate": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABE0lEQVR42u2azRLDIAiEdad96fZcX7rOpNdM6h+KAR04k+TbBWkzxDkL2fAtSd+POyTgnu86n9cIThEC7fA1FmiHrzFhBfgSG1aBzzFi9TGKldxPse5TARNgAjYR8HgdVgFx9ylVAHfJqS1AzWcVcHWM6uA5v9cISDmv/gzUBHEJxsxRl8sbvX5IQO6mMXj9LVSDT4mYPaVwh/M9872Za+TiFHwMngSaq1prS6LX/dIDWlqpdA/KecLsX0rxQxyD/3OkxaFaDtfUArVXKQ/maBHWMSo160X/Tl8rx23CLe8Ds+DtjcwEmAAToEhAy0JNS5xZ92qhFapwZUTPblbTuhW9C2Ytu2KMbMk1LLqX/9TAQjp+iEWEQAesA/cAAAAASUVORK5CYII=",
+    "mts_raised": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABDElEQVR42u1aQRKDIAyUjD9oH9P+rZ7av7WPqW9oT84wiBBgMkmczRFX3E2QBOM0wXQtcEDP2/enQW75XMOQAC3iLULIOvkaF7JOvsaJPJAvcSMv5I84kvdtlDx5P8f1PBGAAAiAAAiAAAjwaDMX+HhfdmOv+6qG353Ijmqh3MSlB0nj01MatXq9hJPGN0UgvSnnhdLEEvgYw4pAbS1qjVd3oVh5bZL0uiQ+F0HkAQiAgMFEk16XxOdeeBpJJFrj7FKCmyk370jjm0sJTiKJcdL4rmLOajW6RSB4/DLXXAshD0AAQwCnoWZt/Z9vCXmIQsqRenqzltqt1NtgttIrppEuuYVGt/tfDWDa9gcPVbRTAfbjcgAAAABJRU5ErkJggg==",
+    "mts_color": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAA80lEQVR42u1aWxLDIAgkO563OUt74fSzMx3bKA8FhW8Gd0GByYYoba4dLU4XPa454F6HiMAs4D1E4B38HRZ4B3+HCRHA/8OGKOB/YUT0NopI2a9hXacCUa3IavmsTJ2T7ydZJbreQA1QDWCrn2A6QyXrI/xU3oDwMIu4G3Uhq+wL4+ccSAJJoHlynLZImPE3u0JWVRDExcjDLOIV0aGS4aaUiGyjSSAJbE2A20kUW3Feoe5sKg9CDJ2mBqtIIe2VwPAbkC2BUWv3so+4RVAjN8rkB+tabTRCFb4xgqPNepJbwRWYvWjFkKjkHoTu8L8apM22N60JR930XuqBAAAAAElFTkSuQmCC",
+    "mts_transform": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABBElEQVR42u2aSxKCQAxEZ7o8lJ4Cj6qnwFvhVi10yMekQ5E1i/dIJjVF09pRudW3PHS+tSUD7nEd83VGcIkI2OFHLGCHHzGhAvwvNlSB/8aI6msUld7+Gut+OsBQ8yQfghMb1Dwt7XLvPB2QwGikQ0ZIKkHVAUsn6A7xPyTCt5C3BCqsShoBb/hQgTV4j3FCNrxVAgxv3iIBlrHRSoBp5jUSYDuwUglU2TYhAtHwrgIZ8G4CWfAuApnwZoFseJMAA7xagAVeJcAELxZggxcLeN4i00bI6x6feohZ4N8EtgRqLPXKuq+v0xW68MkITTbLFLdCGzCzZMWwpOQMQXf5Xw2Oyq4nj/dzcTfFfioAAAAASUVORK5CYII=",
+    "mts_surface": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABMUlEQVR42u2a2xKEIAiGi+Xh3Cfefbh22qtmHMczoFByK9X3oyFG27Zsru01TufndU6Be/92koBZ4C1CQDt8iQW0w5eYwAJ8jg2swKcYwXoaBUvRj7HeZwasGorc1R3psS8qFpADD32YhOAwcCEhKAKfgwr93UESgazwPkhK2OXjjxNEADu8O9JLyh8LgXuWIVsajUV10Iu8d+3EPmgKPgaXm7XGNHudEUAkC6UgmJYNbQmVolWKYOmaRlHI+g5I+d+5FloCloAlgJJxGPJ470b28CXEOQuE6MuVEtLXsQig1jW19ZPoDMRElITEfKadyK6Hx46Jg+oinHKgUfdVokWI6u9CQpDP2MhqGmpazGe9VylhYRZCRujpzWpqt0Jvg1lLrxgoXXINjW7zvxosm21/OP+NeSu1YagAAAAASUVORK5CYII=",
+    "mts_emission": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABC0lEQVR42u1aQRKDMAjUnZzqS9r/v6W+pL3aq+M0lQQIYOFsYGEJ4JBpSrGVmfLR9rxtJuAe75nlgBXwFkfgHfwZFngHf4YJEcD/woYo4GsYEb2MIlL0v2HVZ+D+GsNA+BRSjb4iC8kAOfeVWEgGrulALV0U0igZaI6yMAvFpKNSda2LIAMEZaJCtAcNpaPA990BbSca9ReWEcl70RkYWBiV1ANL4xLnYRpBAQazE7Mus0ARSAaspUyjmpLbP7IasGOFqVUcpmNl6Cig0MFhMscIzlMQSZ91aQe1P8Ng5M9HCU/DHGWh5kX2WK/ViSOwcMSInt2sp3UrehfMXnbF4GzJPSy6wz81SLGWD8wpZTKDeLtDAAAAAElFTkSuQmCC",
+    "mts_presets": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAA10lEQVR42u2aSw6DMAxEYYToWdpLwdHgUu1ZyqaskBDik+IE22Fmy0fvxRAgpigY3ZQhO9Xv7qcBN7zaUiSgBf6PCKzDH7HAOvwREzzA77HBC/wWI7xPo/A0+mus+VTAayrpCb7PRgzx+PT3rQAFKEABClCAAhSgAAUoQAEKJIvka0tdYIJPKYGrRj6VRHXlJTNti7EQkKQCoaMcsxrQulljSUBzpokhAe1pUnp8Pg+ykIaalcxZ83qV8FCFJSPO9GYttVtxtsFspVcMSZfcQqPb/a8GjHZGXhBPTAzEyiAAAAAASUVORK5CYII=",
+    "mts_apply": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABHElEQVR42u2a0RGCMAyGIePIVrgATiILyFa4jj55VzlamjQhCZc8+cCd31f+tErouijd6msuur2eHw249/3RNwlogWNEwDr8EQtYhz9iAg/wJTbwAp9jBO/bKHha/T3W69yBEAgBxwLrOPkV+MGv40QSAWsrjxUx2QPDMtsXyK0yBl5NoKVp1QVK8NjVN9UDFPjTBbhyryLAmXsWAQwQd+6bBdLTUxOeJLAFokaDA54ksPfFOQmJpmWJUI2EVNOyNXFJQjr3bNsoJk4S8CznQC2UBDzbQSYFd+pJXJKQFASJH2TDMv99dvWnPgU+I1rxWCUEuARqBmpWKmW9VoQ83IUtI1Bms5bGrUAdMFuZFUPLlNzCoNv9qwZR2vUFNhWCVl9uVREAAAAASUVORK5CYII=",
+    "mts_cleanup": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAA5ElEQVR42u2a3Q3CMAyEk1MGgBlgjDI9jAEz0A3gCRWhQpLGyHZyfqyi6r74p1EvITB0I5Ysuh+mh4a4/e0SmwC0hNeAwLr4nBZYF5/TBA/if2mDF/HfNML7GIWn3V/T2k8GvEaSfuHuei5eOx9PzED6x+7ndrYmSyYz8AKUAOEU6gagtP67yYAUqHoJtTYyPJcPm3h4AIkPWpJsQskjAktomNPo++hcG6elz1hCBCAAAQhAgCEBosefuyEsthNqDDVr4vvrAQ9Z+NSILd6sJbsVWw1mK14xWlxyC0a3+6sGDO14Alv9XLuGlkAeAAAAAElFTkSuQmCC",
+    "mts_reset": "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABNUlEQVR42u2aPRPCIAyGIcfPtaNsdtBNR/2/OvWu54klJOSDI2tp+7xJgJQ0hGm6FmsGnc6Xtwbc63GLJAFa4BghYB3+iAWswx8xgQf4f2zgBb7ECN6XUfDk/V+sJiLwvF/pEfAIH0IISRpqyWvxntI1MQE13tzGLHkle59NQAsIBzzLHOACaX1Wksx1TrHkCJRglrwWJ2PNJMWKZJvEPeC6RaAHiOpGxu19zNgk5X3MJoV5B0h4v+czxymnp4ApYIBaSERAj1VHPYU0owCaaz+HcOCs5WuB9mOpIiLlWIXzewAb1e3AN1LPhTjSoCUlNwHqtRD1/sRZfGGiwbUQpB5VJGeuqxxsSW5249RCNQ01K7ZnHasa9RCFb0Zo6c1aardCa4PZSq8YKF1yC41u978aTNO2DwpalJwRL6qFAAAAAElFTkSuQmCC",
+}
+
+_ICON_FALLBACKS = {
+    "mts_source": "IMAGE_DATA",
+    "mts_playback": "PLAY",
+    "mts_animate": "ANIM",
+    "mts_raised": "MODIFIER",
+    "mts_color": "COLOR",
+    "mts_transform": "UV",
+    "mts_surface": "MATERIAL",
+    "mts_emission": "LIGHT",
+    "mts_presets": "PRESET",
+    "mts_apply": "CHECKMARK",
+    "mts_cleanup": "BRUSH_DATA",
+    "mts_reset": "FILE_REFRESH",
+}
+
+_ICONS_PCOLL = None
+_ICONS_DIR = None
+
+
+def _load_icons():
+    """Build the colored preview icons from the embedded PNG data."""
+    global _ICONS_PCOLL, _ICONS_DIR
+    _unload_icons()
+    try:
+        from bpy.utils import previews
+        _ICONS_DIR = tempfile.mkdtemp(prefix="mts_icons_")
+        pcoll = previews.new()
+        for key, encoded in ICONS.items():
+            path = os.path.join(_ICONS_DIR, key + ".png")
+            with open(path, "wb") as handle:
+                handle.write(base64.b64decode(encoded))
+            pcoll.load(key, path, "IMAGE")
+        _ICONS_PCOLL = pcoll
+    except Exception as exc:  # pragma: no cover - defensive
+        print("[MotionTexture] custom icons unavailable:", exc)
+        _ICONS_PCOLL = None
+
+
+def _unload_icons():
+    global _ICONS_PCOLL, _ICONS_DIR
+    if _ICONS_PCOLL is not None:
+        try:
+            from bpy.utils import previews
+            previews.remove(_ICONS_PCOLL)
+        except Exception:
+            pass
+        _ICONS_PCOLL = None
+    if _ICONS_DIR is not None:
+        try:
+            import shutil
+            shutil.rmtree(_ICONS_DIR, ignore_errors=True)
+        except Exception:
+            pass
+        _ICONS_DIR = None
+
+
+def _icon(key):
+    """Return a preview icon id for key, or 0 if unavailable."""
+    if _ICONS_PCOLL is not None and key in _ICONS_PCOLL:
+        try:
+            return _ICONS_PCOLL[key].icon_id
+        except Exception:
+            return 0
+    return 0
+
+
+def _hdr(container, text, key):
+    """Draw a colored header label using the custom icon when available."""
+    ids = _icon(key)
+    if ids:
+        container.label(text=text, icon_value=ids)
+    else:
+        container.label(text=text, icon=_ICON_FALLBACKS.get(key, "INFO"))
+
+
+def _op(container, idname, text, key=None, fallback=None, **kwargs):
+    """Create an operator with a colored icon (fallback to a built-in name)."""
+    ids = _icon(key) if key else 0
+    if ids:
+        return container.operator(idname, text=text, icon_value=ids, **kwargs)
+    if fallback:
+        return container.operator(idname, text=text, icon=fallback, **kwargs)
+    return container.operator(idname, text=text, **kwargs)
+
 
 _SUSPEND_UPDATES = False
 
@@ -2727,15 +2834,15 @@ def _no_mesh(layout):
 
 def _ui_apply(layout, s):
     box = layout.box()
-    box.label(text="Apply Material", icon="MATERIAL")
+    _hdr(box, "Apply Material", "mts_apply")
     row = box.row(align=True)
     row.scale_y = 1.2
-    row.operator("motiontexture.apply", text="Apply to Selected", icon="PLAY")
+    _op(row, "motiontexture.apply", "Apply to Selected", "mts_apply", "CHECKMARK")
     row = box.row(align=True)
-    row.operator("motiontexture.apply_all", text="Apply to All Selected", icon="DUPLICATE")
+    _op(row, "motiontexture.apply_all", "Apply to All Selected", "mts_apply", "MOD_ARRAY")
     row = box.row(align=True)
-    row.operator("motiontexture.rebuild", text="Rebuild Material", icon="FILE_REFRESH")
-    row.operator("motiontexture.revert_still", text="Revert to Still", icon="LOOP_BACK")
+    _op(row, "motiontexture.rebuild", "Rebuild Material", "mts_reset", "FILE_REFRESH")
+    _op(row, "motiontexture.revert_still", "Revert to Still", "mts_reset", "RECOVER_LAST")
 
 
 def _ui_source(layout, context, s):
@@ -2744,20 +2851,21 @@ def _ui_source(layout, context, s):
         return
     col = layout.column()
     box = col.box()
-    box.label(text="Add Source", icon="FILEBROWSER")
+    _hdr(box, "Add Source", "mts_source")
     row = box.row(align=True)
-    row.operator("motiontexture.open_still", text="Still Image", icon="FILE_IMAGE")
-    row.operator("motiontexture.open_sequence", text="Image Sequence", icon="SEQUENCE")
+    _op(row, "motiontexture.open_still", "Still Image", "mts_source", "FILE_IMAGE")
+    _op(row, "motiontexture.open_sequence", "Image Sequence", "mts_source", "FCURVE")
     row = box.row(align=True)
-    row.operator("motiontexture.open_movie", text="Movie / Video", icon="FILE_MOVIE")
-    row.menu("MOTIONTEXTURE_MT_recent", text="Recent", icon="TIME")
+    _op(row, "motiontexture.open_movie", "Movie / Video", "mts_source", "CAMERA_DATA")
+    _op(row, "motiontexture.open_path", "By File Path", "mts_source", "LINK_BLEND")
     row = box.row(align=True)
-    row.operator("motiontexture.open_path", text="By File Path", icon="LINKED")
-    row.operator("motiontexture.clear_source", text="Clear", icon="X")
+    row.menu("MOTIONTEXTURE_MT_recent", text="Recent Sources", icon="RECOVER_LAST")
+    _op(row, "motiontexture.refresh_source", "Refresh", "mts_reset", "FILE_REFRESH")
+    _op(row, "motiontexture.clear_source", "Clear", "mts_cleanup", "CANCEL")
 
     if s.source_path:
         box = col.box()
-        box.label(text="Source Details", icon="INFO")
+        _hdr(box, "Source Details", "mts_source")
         box.label(text=os.path.basename(s.source_path))
         if s.source_mode in {"SEQUENCE", "MOVIE"}:
             row = box.row(align=True)
@@ -2778,9 +2886,9 @@ def _ui_source(layout, context, s):
                 pass
 
     box = col.box()
-    box.label(text="Optional", icon="OPTIONS")
+    _hdr(box, "Optional", "mts_surface")
     box.prop(s, "normal_image", text="Normal Map")
-    box.operator("motiontexture.open_normal", text="Load Normal Map", icon="FILE_IMAGE")
+    _op(box, "motiontexture.open_normal", "Load Normal Map", "mts_surface", "IMPORT")
 
 
 def _ui_playback(layout, context, s):
@@ -2789,26 +2897,26 @@ def _ui_playback(layout, context, s):
         return
     col = layout.column()
     box = col.box()
-    box.label(text="Timeline Control", icon="PLAY")
+    _hdr(box, "Timeline Control", "mts_playback")
     row = box.row(align=True)
-    row.operator("motiontexture.play", text="Play / Pause", icon="PLAY")
-    previous = row.operator("motiontexture.frame_step", text="", icon="TRIA_LEFT")
+    _op(row, "motiontexture.play", "Play / Pause", "mts_playback", "PLAY")
+    previous = row.operator("motiontexture.frame_step", text="", icon="FRAME_PREV")
     previous.direction = -1
-    following = row.operator("motiontexture.frame_step", text="", icon="TRIA_RIGHT")
+    following = row.operator("motiontexture.frame_step", text="", icon="FRAME_NEXT")
     following.direction = 1
     box.prop(context.scene, "frame_current", text="Current Frame")
     row = box.row(align=True)
     row.prop(context.scene, "frame_start", text="Start")
     row.prop(context.scene, "frame_end", text="End")
     box.prop(s, "preview_on_selected", toggle=True)
-    box.operator("motiontexture.preview_render", text="Preview Render", icon="RENDER_STILL")
+    _op(box, "motiontexture.preview_render", "Preview Render", "mts_playback", "SHADING_RENDERED")
 
     box = col.box()
-    box.label(text="Bake (Save to Images)", icon="IMAGE_DATA")
+    _hdr(box, "Bake (Save to Images)", "mts_apply")
     row = box.row(align=True)
-    row.operator("motiontexture.bake_frame", text="Bake Current Frame", icon="RENDER_STILL")
-    row.operator("motiontexture.bake_sequence", text="Bake Animation", icon="RENDER_ANIMATION")
-    box.label(text="Saves PNG files next to your source", icon="INFO")
+    _op(row, "motiontexture.bake_frame", "Bake Current Frame", "mts_apply", "IMAGE_DATA")
+    _op(row, "motiontexture.bake_sequence", "Bake Animation", "mts_apply", "RENDERLAYERS")
+    box.label(text="Saves PNG files next to your source", icon="QUESTION")
 
 
 def _ui_animation(layout, context, s):
@@ -2817,7 +2925,7 @@ def _ui_animation(layout, context, s):
         return
     col = layout.column()
     box = col.box()
-    box.label(text="Animation Settings", icon="SETTINGS")
+    _hdr(box, "Animation Settings", "mts_animate")
     box.prop(s, "enable_animation", toggle=True)
     box.prop(s, "speed")
     box.prop(s, "stop_motion", toggle=True)
@@ -2827,7 +2935,7 @@ def _ui_animation(layout, context, s):
     box.prop(s, "animate_relief", toggle=True)
 
     box = col.box()
-    box.label(text="Pick a Motion Style", icon="PRESET")
+    _hdr(box, "Pick a Motion Style", "mts_animate")
     box.label(text="One-cycle presets that repeat automatically", icon="INFO")
     grid = box.grid_flow(columns=2, even_columns=True, align=True)
     for key, label, description in MOTION_PRESETS:
@@ -2841,18 +2949,18 @@ def _ui_animation(layout, context, s):
         box.label(text="Active: %s" % s.last_motion_preset.title(), icon="CHECKMARK")
 
     box = col.box()
-    box.label(text="Keyframes & Controls", icon="KEY_HLT")
+    _hdr(box, "Keyframes & Controls", "mts_animate")
     row = box.row(align=True)
-    row.operator("motiontexture.key_all", text="Key at Frame", icon="KEY_HLT")
-    row.operator("motiontexture.delete_key", text="Delete Key", icon="KEY_DEHLT")
-    box.operator("motiontexture.copy_still", text="Copy Still to Frame 1", icon="DUPLICATE")
-    box.operator("motiontexture.clear_animation", text="Clear All Animation", icon="X")
+    _op(row, "motiontexture.key_all", "Key at Frame", "mts_animate", "KEY_HLT")
+    _op(row, "motiontexture.delete_key", "Delete Key", "mts_cleanup", "KEY_DEHLT")
+    _op(box, "motiontexture.copy_still", "Copy Still to Frame 1", "mts_apply", "PASTEDOWN")
+    _op(box, "motiontexture.clear_animation", "Clear All Animation", "mts_cleanup", "TRASH")
 
     box = col.box()
-    box.label(text="Apply to Multiple Objects", icon="DUPLICATE")
+    _hdr(box, "Apply to Multiple Objects", "mts_apply")
     box.label(text="Select source + targets, then click below", icon="INFO")
     box.prop(s, "spread_frames")
-    box.operator("motiontexture.apply_all", text="Apply to All Selected (with offset)", icon="DUPLICATE")
+    _op(box, "motiontexture.apply_all", "Apply to All Selected (with offset)", "mts_apply", "MOD_ARRAY")
     if s.enable_animation:
         box.label(text="Animation is enabled", icon="ANIM")
 
@@ -2862,20 +2970,22 @@ def _ui_raised(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    col.prop(s, "relief_mode")
-    col.prop(s, "relief_source")
-    col.prop(s, "relief", slider=True)
-    col.prop(s, "depth", slider=True)
-    row = col.row(align=True)
+    box = col.box()
+    _hdr(box, "Relief Settings", "mts_raised")
+    box.prop(s, "relief_mode")
+    box.prop(s, "relief_source")
+    box.prop(s, "relief", slider=True)
+    box.prop(s, "depth", slider=True)
+    row = box.row(align=True)
     row.prop(s, "relief_invert", toggle=True)
     row.prop(s, "detail", slider=True)
-    col.prop(s, "detail_scale")
+    box.prop(s, "detail_scale")
     if s.relief_mode == "DISPLACEMENT":
-        col.prop(s, "subdivision_level")
-        col.label(text="Displacement is most reliable in Cycles", icon="INFO")
-    col.separator()
-    col.label(text="Moving Raised Texture", icon="MODIFIER")
-    grid = col.grid_flow(columns=2, even_columns=True, align=True)
+        box.prop(s, "subdivision_level")
+        box.label(text="Displacement is most reliable in Cycles", icon="ERROR")
+    box = col.box()
+    _hdr(box, "Animate Relief", "mts_raised")
+    grid = box.grid_flow(columns=2, even_columns=True, align=True)
     for key, label, description in RELIEF_MOTION_ITEMS:
         operator = grid.operator("motiontexture.relief_motion", text=label)
         operator.preset = key
@@ -2883,13 +2993,14 @@ def _ui_raised(layout, context, s):
             operator.description = description
         except Exception:
             pass
-    col.prop(s, "relief_speed")
-    col.prop(s, "relief_amplitude", slider=True)
-    col.prop(s, "relief_phase")
-    col.separator()
-    col.prop(s, "normal_image", text="Normal")
-    col.operator("motiontexture.open_normal", text="Load Normal Map", icon="FILE_IMAGE")
-    col.prop(s, "normal_strength", slider=True)
+    box.prop(s, "relief_speed")
+    box.prop(s, "relief_amplitude", slider=True)
+    box.prop(s, "relief_phase")
+    box = col.box()
+    _hdr(box, "Normal Map", "mts_raised")
+    box.prop(s, "normal_image", text="")
+    _op(box, "motiontexture.open_normal", "Load Normal Map", "mts_raised", "FILE_IMAGE")
+    box.prop(s, "normal_strength", slider=True)
 
 
 def _ui_surface(layout, context, s):
@@ -2897,9 +3008,11 @@ def _ui_surface(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    col.prop(s, "roughness", slider=True)
-    col.prop(s, "metallic", slider=True)
-    row = col.row(align=True)
+    box = col.box()
+    _hdr(box, "Surface Style", "mts_surface")
+    box.prop(s, "roughness", slider=True)
+    box.prop(s, "metallic", slider=True)
+    row = box.row(align=True)
     row.prop(s, "specular", slider=True)
     row.prop(s, "ior", slider=True)
 
@@ -2909,15 +3022,17 @@ def _ui_surface_advanced(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    col.prop(s, "coat", slider=True)
-    col.prop(s, "coat_roughness", slider=True)
-    row = col.row(align=True)
+    box = col.box()
+    _hdr(box, "Advanced Surface", "mts_surface")
+    box.prop(s, "coat", slider=True)
+    box.prop(s, "coat_roughness", slider=True)
+    row = box.row(align=True)
     row.prop(s, "sheen", slider=True)
     row.prop(s, "sheen_roughness", slider=True)
-    col.prop(s, "anisotropic", slider=True)
-    col.prop(s, "subsurface", slider=True)
-    col.prop(s, "transmission", slider=True)
-    col.prop(s, "alpha", slider=True)
+    box.prop(s, "anisotropic", slider=True)
+    box.prop(s, "subsurface", slider=True)
+    box.prop(s, "transmission", slider=True)
+    box.prop(s, "alpha", slider=True)
 
 
 def _ui_color(layout, context, s):
@@ -2925,27 +3040,29 @@ def _ui_color(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    row = col.row(align=True)
+    box = col.box()
+    _hdr(box, "Color Adjustments", "mts_color")
+    row = box.row(align=True)
     row.prop(s, "invert", toggle=True)
     row.prop(s, "grayscale")
-    col.prop(s, "amount")
-    col.separator()
-    col.label(text="Hue Color Ramp", icon="COLOR")
+    box.prop(s, "amount")
+    box.separator()
+    _hdr(box, "Color Mapping", "mts_color")
     obj = getattr(context, "active_object", None)
     mat = _find_material(obj) if obj is not None else None
     ramp_node = mat.node_tree.nodes.get("MT_HueRamp") if (mat is not None and mat.node_tree is not None) else None
     if ramp_node is not None:
-        col.template_color_ramp(ramp_node, "color_ramp", expand=True)
-    col.prop(s, "remap", slider=True)
-    col.prop(s, "hue", slider=True)
-    col.prop(s, "saturation")
-    col.prop(s, "brightness")
-    col.prop(s, "contrast")
-    col.prop(s, "gamma")
-    row = col.row(align=True)
+        box.template_color_ramp(ramp_node, "color_ramp", expand=True)
+    box.prop(s, "remap", slider=True)
+    box.prop(s, "hue", slider=True)
+    box.prop(s, "saturation")
+    box.prop(s, "brightness")
+    box.prop(s, "contrast")
+    box.prop(s, "gamma")
+    row = box.row(align=True)
     row.prop(s, "temperature")
     row.prop(s, "tint")
-    col.prop(s, "posterize")
+    box.prop(s, "posterize")
 
 
 def _ui_transform(layout, context, s):
@@ -2954,7 +3071,7 @@ def _ui_transform(layout, context, s):
         return
     col = layout.column()
     box = col.box()
-    box.label(text="Size & Tiling", icon="FULLSCREEN_ENTER")
+    _hdr(box, "Size & Tiling", "mts_transform")
     box.prop(s, "scale")
     box.prop(s, "scale_z")
     row = box.row(align=True)
@@ -2962,7 +3079,7 @@ def _ui_transform(layout, context, s):
     row.prop(s, "tiling_y")
 
     box = col.box()
-    box.label(text="Rotation", icon="ORIENTATION_GLOBAL")
+    _hdr(box, "Rotation", "mts_transform")
     box.prop(s, "rotation_x")
     box.prop(s, "rotation_y")
     row = box.row(align=True)
@@ -2973,7 +3090,7 @@ def _ui_transform(layout, context, s):
     forward.angle = 90.0
 
     box = col.box()
-    box.label(text="Position & Flip", icon="ARROW_LEFTRIGHT")
+    _hdr(box, "Position & Flip", "mts_transform")
     box.prop(s, "offset_x")
     box.prop(s, "offset_y")
     box.prop(s, "offset_z")
@@ -2982,17 +3099,17 @@ def _ui_transform(layout, context, s):
     row.prop(s, "flip_y", toggle=True)
 
     box = col.box()
-    box.label(text="Quick Tools", icon="TOOL_SETTINGS")
-    box.operator("motiontexture.reset_transform", text="Reset Transform", icon="LOOP_BACK")
-    box.operator("motiontexture.cleanup_materials", text="Clean Up Materials", icon="BRUSH_DATA")
+    _hdr(box, "Quick Tools", "mts_reset")
+    _op(box, "motiontexture.reset_transform", "Reset Transform", "mts_reset", "FILE_REFRESH")
+    _op(box, "motiontexture.cleanup_materials", "Clean Up Materials", "mts_cleanup", "BRUSH_DATA")
 
     box = col.box()
-    box.label(text="Fix UVs for This Object", icon="UV")
+    _hdr(box, "Fix UVs for This Object", "mts_transform")
     box.label(text="Great for cubes - fixes sideways images", icon="INFO")
     row = box.row(align=True)
-    every = row.operator("motiontexture.fit_surface", text="Fit Every Face", icon="FACESEL")
+    every = _op(row, "motiontexture.fit_surface", "Fit Every Face", "mts_transform", "FACESEL")
     every.face = "ALL"
-    front = row.operator("motiontexture.fit_surface", text="Fit Front Face", icon="SNAP_FACE")
+    front = _op(row, "motiontexture.fit_surface", "Fit Front Face", "mts_transform", "UV_FACESEL")
     front.face = "FRONT"
 
 
@@ -3001,9 +3118,11 @@ def _ui_emission(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    col.prop(s, "emission", slider=True)
-    col.prop(s, "glow_mask", toggle=True)
-    col.prop(s, "glow_color", text="")
+    box = col.box()
+    _hdr(box, "Glow / Emission", "mts_emission")
+    box.prop(s, "emission", slider=True)
+    box.prop(s, "glow_mask", toggle=True)
+    box.prop(s, "glow_color", text="")
 
 
 def _ui_presets(layout, context, s):
@@ -3012,24 +3131,24 @@ def _ui_presets(layout, context, s):
         return
     col = layout.column()
     box = col.box()
-    box.label(text="Surface Style Presets", icon="MATERIAL")
+    _hdr(box, "Surface Style Presets", "mts_surface")
     grid = box.grid_flow(columns=3, even_columns=True, align=True)
     for key in SURFACE_PRESETS:
         operator = grid.operator("motiontexture.surface_preset", text=SURFACE_PRESETS[key]["label"])
         operator.preset = key
 
     box = col.box()
-    box.label(text="Save Your Settings", icon="PRESET")
-    box.operator("motiontexture.save_preset", text="Save Current Setup", icon="ADD")
+    _hdr(box, "Save Your Settings", "mts_presets")
+    _op(box, "motiontexture.save_preset", "Save Current Setup", "mts_presets", "ADD")
     box.menu("MOTIONTEXTURE_MT_presets", text="Load Saved Setup", icon="PRESET")
     box.menu("MOTIONTEXTURE_MT_rename_preset", text="Rename Saved Setup", icon="GREASEPENCIL")
     row = box.row(align=True)
-    row.operator("motiontexture.import_preset", text="Import", icon="IMPORT")
-    row.operator("motiontexture.export_preset", text="Export", icon="EXPORT")
+    _op(row, "motiontexture.import_preset", "Import", "mts_presets", "IMPORT")
+    _op(row, "motiontexture.export_preset", "Export", "mts_presets", "EXPORT")
     box.menu("MOTIONTEXTURE_MT_delete_preset", text="Delete Saved Setup", icon="TRASH")
 
     box = col.box()
-    box.label(text="Reset Options", icon="LOOP_BACK")
+    _hdr(box, "Reset Options", "mts_reset")
     box.menu("MOTIONTEXTURE_MT_reset", text="Reset to Defaults...", icon="LOOP_BACK")
 
 
@@ -3055,9 +3174,9 @@ class MOTIONTEXTURE_PT_main(bpy.types.Panel):
         if s.image is None:
             box.label(text="Step 1: Add your image/video", icon="NUMBER_1")
             col = box.column(align=True)
-            col.operator("motiontexture.open_still", text="Open Still Image", icon="FILE_IMAGE")
-            col.operator("motiontexture.open_sequence", text="Open Image Sequence", icon="SEQUENCE")
-            col.operator("motiontexture.open_movie", text="Open Movie/Video", icon="FILE_MOVIE")
+            _op(col, "motiontexture.open_still", "Open Still Image", "mts_source", "FILE_IMAGE")
+            _op(col, "motiontexture.open_sequence", "Open Image Sequence", "mts_source", "SEQUENCE")
+            _op(col, "motiontexture.open_movie", "Open Movie/Video", "mts_source", "FILE_MOVIE")
         else:
             box.label(text="Step 1: Source loaded ✓", icon="CHECKMARK")
             box.label(text="  %s" % s.image.name, icon="IMAGE_DATA")
@@ -3085,7 +3204,7 @@ class MOTIONTEXTURE_PT_main(bpy.types.Panel):
         if obj.type == "MESH" and len(obj.data.polygons) > 1:
             layout.separator()
             row = layout.row(align=True)
-            every = row.operator("motiontexture.fit_surface", text="Quick Fit to Object", icon="UV")
+            every = _op(row, "motiontexture.fit_surface", "Quick Fit to Object", "mts_transform", "UV")
             every.face = "ALL"
             layout.label(text="Fixes sideways images on cubes", icon="INFO")
 
@@ -3180,6 +3299,7 @@ _classes = (
 
 
 def register():
+    _load_icons()
     for cls in _classes:
         bpy.utils.register_class(cls)
     bpy.types.Object.motion_texture = bpy.props.PointerProperty(type=MotionTextureSettings)
@@ -3194,6 +3314,7 @@ def unregister():
         del bpy.types.Object.motion_texture
     for cls in reversed(_classes):
         bpy.utils.unregister_class(cls)
+    _unload_icons()
 
 
 if __name__ == "__main__":
