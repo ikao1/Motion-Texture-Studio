@@ -2032,6 +2032,49 @@ class MOTIONTEXTURE_OT_cleanup_materials(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def _draw_quick_start(menu, context):
+    layout = menu.layout
+    layout.label(text="Motion Texture Studio", icon="INFO")
+    layout.label(text="Animate images and video on your objects.")
+    layout.separator()
+
+    box = layout.box()
+    box.label(text="1) Load a source", icon="NUMBER_1")
+    box.label(text="Open a still, image sequence, or movie")
+    box.label(text="from the '1) Source' panel.")
+
+    box = layout.box()
+    box.label(text="2) Add motion", icon="NUMBER_2")
+    box.label(text="In '3) Animate', tick Enable Animation,")
+    box.label(text="or pick a Motion Style preset.")
+
+    box = layout.box()
+    box.label(text="3) Apply", icon="NUMBER_3")
+    box.label(text="Click Apply to Selected to build the")
+    box.label(text="material on this object.")
+
+    box = layout.box()
+    box.label(text="Handy tools", icon="LIGHT")
+    box.label(text="• Quick Fit to Object fixes cubes")
+    box.label(text="• Reset Transform / Clean Up Materials")
+    box.label(text="  are in '6) UV/Transform'")
+    box.label(text="• Save and reuse setups in '9) Presets'")
+    box.label(text="• Bake frames in '2) Preview & Playback'")
+
+
+class MOTIONTEXTURE_OT_quick_start(bpy.types.Operator):
+    bl_idname = "motiontexture.quick_start"
+    bl_label = "Quick Start Guide"
+    bl_description = "Show step-by-step instructions"
+    bl_options = {"INTERNAL"}
+
+    def invoke(self, context, event):
+        context.window_manager.popup_menu(
+            _draw_quick_start, title="Quick Start Guide", icon="QUESTION"
+        )
+        return {"FINISHED"}
+
+
 class MOTIONTEXTURE_OT_fit_surface(bpy.types.Operator):
     bl_idname = "motiontexture.fit_surface"
     bl_label = "Fit Image to Surface"
@@ -3050,7 +3093,9 @@ class MOTIONTEXTURE_PT_main(bpy.types.Panel):
             box.label(text="Start by selecting a cube or mesh in your scene.")
             return
 
-        layout.label(text="Quick Start Guide", icon="QUESTION")
+        header = layout.row(align=True)
+        header.label(text="Quick Start Guide")
+        header.operator("motiontexture.quick_start", text="", icon="QUESTION")
         box = layout.box()
         if s.image is None:
             box.label(text="Step 1: Add your image/video", icon="NUMBER_1")
@@ -3152,6 +3197,7 @@ _classes = (
     MOTIONTEXTURE_OT_rotate,
     MOTIONTEXTURE_OT_reset_transform,
     MOTIONTEXTURE_OT_cleanup_materials,
+    MOTIONTEXTURE_OT_quick_start,
     MOTIONTEXTURE_OT_fit_surface,
     MOTIONTEXTURE_OT_surface_preset,
     MOTIONTEXTURE_OT_reset_section,
