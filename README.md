@@ -50,10 +50,15 @@ Sidebar tab **Motion Texture** (`N`), collapsible sections:
   - **Reset Transform** — restore scale, tiling, rotation (X/Y/Z), offset (X/Y/Z), scale Z, and flips to defaults
   - **Clean Up Materials** — assign the Motion Texture material to all faces and remove unused material slots (fixes stray default materials)
   - `Fit to Object` — rewrite the object's UVs so the image fills every face upright (`Every Face`) or a single front face (`Front`). Use this on cubes and multi-face objects, where a single image otherwise shows sideways or split across the default UV islands
-- **Surface** (kept from v1.8)
-  - Roughness, Metallic, Specular, IOR, Coat, Coat Roughness, Sheen, Sheen Roughness, Anisotropic, Subsurface, Transmission, Alpha
-  - Glow, Glow Tint, `Glow From Image` toggle
-  - Surface Preset menu (Matte, Glossy, Plastic, Ceramic, Metal, Brushed, Velvet, Glass, Glowing)
+- **Surface** (kept from v1.8, expanded)
+  - Base: Roughness, Metallic, Specular, IOR, Diffuse Roughness, Specular Tint
+  - Clear Coat: Coat, Coat Roughness, Coat IOR, Coat Tint
+  - Fabric Sheen: Sheen, Sheen Roughness, Sheen Tint
+  - Anisotropy: Anisotropic, Anisotropic Rotation
+  - Subsurface: Weight, Scale, IOR, Anisotropy
+  - Glass & Thin Film: Transmission, Alpha, Thin Wall, Thin Film Thickness, Thin Film IOR
+  - Glow (emission strength), Glow Tint, `Glow From Image` toggle, plus Glow Gain and Glow Threshold when masking
+  - 19 Surface Presets: Matte, Glossy, Plastic, Ceramic, Metal, Brushed, Velvet, Glass, Glowing, Toon, Rubber, Skin, Wax, Marble, Chrome, Gold, Hologram, Car Paint, Bubble
 - **Apply / Settings**
   - `Apply to Selected`, `Apply to All Selected`, `Revert to Still`, `Rebuild`
   - `Save Motion Preset…`, `Load…`, `Rename…`, `Delete…`, `Import…`, `Export…`

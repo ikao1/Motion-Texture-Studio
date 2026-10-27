@@ -18,7 +18,7 @@ from contextlib import contextmanager
 
 import bpy
 
-GRAPH_VERSION = 13
+GRAPH_VERSION = 14
 MATERIAL_PREFIX = "MotionTexture_"
 MODIFIER_NAME = "MotionTexture Displacement"
 IMAGE_EXTENSIONS = ".png;.jpg;.jpeg;.jpe;.bmp;.tga;.tif;.tiff;.exr;.hdr;.webp;.gif"
@@ -83,19 +83,43 @@ DEFAULTS = {
     "metallic": 0.0,
     "specular": 0.5,
     "ior": 1.5,
+    "diffuse_roughness": 0.0,
+    "specular_tint": (1.0, 1.0, 1.0, 1.0),
     "coat": 0.0,
     "coat_roughness": 0.03,
+    "coat_ior": 1.5,
+    "coat_tint": (1.0, 1.0, 1.0, 1.0),
     "sheen": 0.0,
     "sheen_roughness": 0.5,
+    "sheen_tint": (1.0, 1.0, 1.0, 1.0),
     "anisotropic": 0.0,
+    "anisotropic_rotation": 0.0,
     "subsurface": 0.0,
+    "subsurface_scale": 0.05,
+    "subsurface_ior": 1.4,
+    "subsurface_anisotropy": 0.0,
     "transmission": 0.0,
     "alpha": 1.0,
+    "thin_wall": False,
+    "thin_film_thickness": 0.0,
+    "thin_film_ior": 1.33,
     "normal_strength": 1.0,
     "emission": 0.0,
     "glow_mask": False,
     "glow_color": (1.0, 1.0, 1.0, 1.0),
+    "glow_gain": 1.0,
+    "glow_threshold": 0.0,
 }
+
+SURFACE_MATERIAL_KEYS = (
+    "roughness", "metallic", "specular", "ior", "diffuse_roughness",
+    "specular_tint", "coat", "coat_roughness", "coat_ior", "coat_tint",
+    "sheen", "sheen_roughness", "sheen_tint", "anisotropic",
+    "anisotropic_rotation", "subsurface", "subsurface_scale", "subsurface_ior",
+    "subsurface_anisotropy", "transmission", "alpha", "thin_wall",
+    "thin_film_thickness", "thin_film_ior", "normal_strength",
+    "emission", "glow_mask", "glow_color", "glow_gain", "glow_threshold",
+)
 
 RESET_SECTIONS = {
     "COLOR": (
@@ -108,10 +132,7 @@ RESET_SECTIONS = {
     ),
     "SURFACE": (
         "relief", "depth", "relief_invert", "detail", "detail_scale",
-        "roughness", "metallic", "specular", "ior", "coat", "coat_roughness",
-        "sheen", "sheen_roughness", "anisotropic", "subsurface", "transmission",
-        "alpha", "normal_strength", "emission", "glow_mask", "glow_color",
-    ),
+    ) + SURFACE_MATERIAL_KEYS,
     "ANIMATION": (
         "relief_speed", "relief_amplitude", "relief_phase", "stop_motion", "step_frames",
     ),
@@ -128,6 +149,16 @@ SURFACE_PRESETS = {
     "VELVET": {"label": "Velvet", "roughness": 0.85, "metallic": 0.0, "specular": 0.2, "ior": 1.45, "coat": 0.0, "coat_roughness": 0.03, "sheen": 1.0, "sheen_roughness": 0.3, "anisotropic": 0.0, "subsurface": 0.1, "transmission": 0.0, "alpha": 1.0, "emission": 0.0},
     "GLASS": {"label": "Glass", "roughness": 0.05, "metallic": 0.0, "specular": 0.5, "ior": 1.45, "coat": 0.0, "coat_roughness": 0.03, "sheen": 0.0, "sheen_roughness": 0.5, "anisotropic": 0.0, "subsurface": 0.0, "transmission": 1.0, "alpha": 1.0, "emission": 0.0},
     "GLOWING": {"label": "Glowing", "roughness": 0.6, "metallic": 0.0, "specular": 0.4, "ior": 1.45, "coat": 0.0, "coat_roughness": 0.03, "sheen": 0.0, "sheen_roughness": 0.5, "anisotropic": 0.0, "subsurface": 0.0, "transmission": 0.0, "alpha": 1.0, "emission": 1.5},
+    "TOON": {"label": "Toon", "roughness": 0.95, "metallic": 0.0, "specular": 0.05, "ior": 1.45, "diffuse_roughness": 0.6, "emission": 0.0},
+    "RUBBER": {"label": "Rubber", "roughness": 0.92, "metallic": 0.0, "specular": 0.15, "ior": 1.45, "diffuse_roughness": 0.8, "emission": 0.0},
+    "SKIN": {"label": "Skin", "roughness": 0.45, "metallic": 0.0, "specular": 0.5, "ior": 1.4, "subsurface": 0.7, "subsurface_scale": 0.25, "subsurface_ior": 1.4, "sheen": 0.2, "sheen_tint": (1.0, 0.75, 0.6, 1.0), "emission": 0.0},
+    "WAX": {"label": "Wax", "roughness": 0.5, "metallic": 0.0, "specular": 0.4, "ior": 1.45, "subsurface": 0.85, "subsurface_scale": 0.5, "transmission": 0.15, "emission": 0.0},
+    "MARBLE": {"label": "Marble", "roughness": 0.18, "metallic": 0.0, "specular": 0.6, "ior": 1.5, "subsurface": 0.3, "subsurface_scale": 0.15, "coat": 0.2, "emission": 0.0},
+    "CHROME": {"label": "Chrome", "roughness": 0.03, "metallic": 1.0, "specular": 0.5, "ior": 1.5, "coat": 0.2, "emission": 0.0},
+    "GOLD": {"label": "Gold", "roughness": 0.2, "metallic": 1.0, "specular": 0.5, "ior": 1.5, "specular_tint": (1.0, 0.84, 0.55, 1.0), "coat": 0.1, "emission": 0.0},
+    "HOLOGRAM": {"label": "Hologram", "roughness": 0.15, "metallic": 0.2, "specular": 0.6, "ior": 1.5, "transmission": 0.7, "thin_film_thickness": 500.0, "thin_film_ior": 1.6, "emission": 0.8, "glow_color": (0.4, 0.85, 1.0, 1.0)},
+    "CAR_PAINT": {"label": "Car Paint", "roughness": 0.2, "metallic": 0.6, "specular": 0.6, "ior": 1.5, "coat": 1.0, "coat_roughness": 0.03, "coat_ior": 1.6, "thin_film_thickness": 350.0, "emission": 0.0},
+    "BUBBLE": {"label": "Bubble", "roughness": 0.02, "metallic": 0.0, "specular": 0.5, "ior": 1.45, "transmission": 1.0, "thin_wall": True, "thin_film_thickness": 300.0, "thin_film_ior": 1.4, "alpha": 1.0, "emission": 0.0},
 }
 PRESET_ITEMS = [(key, SURFACE_PRESETS[key]["label"], "") for key in SURFACE_PRESETS]
 
@@ -384,8 +415,16 @@ def _posterize(nt, in_socket):
 def _set_input(node, name, value):
     try:
         node.inputs[name].default_value = value
+        return
     except Exception:
         pass
+    for socket in node.inputs:
+        if socket.name == name:
+            try:
+                socket.default_value = value
+            except Exception:
+                pass
+            return
 
 
 def _tint_color(temperature, tint):
@@ -621,10 +660,21 @@ def _build(mat, s):
     glow_lum.name = "MT_Glow_Lum"
     glow_lum.location = (220, 580)
 
+    glow_thresh = nt.nodes.new("ShaderNodeMath")
+    glow_thresh.name = "MT_Glow_Threshold"
+    glow_thresh.operation = "SUBTRACT"
+    glow_thresh.location = (220, 760)
+
+    glow_clamp = nt.nodes.new("ShaderNodeMath")
+    glow_clamp.name = "MT_Glow_Clamp"
+    glow_clamp.operation = "MAXIMUM"
+    glow_clamp.inputs[1].default_value = 0.0
+    glow_clamp.location = (420, 760)
+
     glow_mul = nt.nodes.new("ShaderNodeMath")
     glow_mul.name = "MT_Glow_Mul"
     glow_mul.operation = "MULTIPLY"
-    glow_mul.location = (420, 580)
+    glow_mul.location = (620, 580)
 
     motion_map = nt.nodes.new("ShaderNodeMapping")
     motion_map.name = "MT_MotionMap"
@@ -711,7 +761,9 @@ def _build(mat, s):
     except Exception:
         pass
     link(amount.outputs["Color"], glow_lum.inputs["Color"])
-    link(glow_lum.outputs["Val"], glow_mul.inputs[0])
+    link(glow_lum.outputs["Val"], glow_thresh.inputs[0])
+    link(glow_thresh.outputs[0], glow_clamp.inputs[0])
+    link(glow_clamp.outputs[0], glow_mul.inputs[0])
 
     link(coord.outputs["Object"], motion_map.inputs["Vector"])
     link(motion_map.outputs["Vector"], noise.inputs["Vector"])
@@ -748,6 +800,8 @@ def _set_values(nt, s):
     amount = nt.nodes["MT_Amount"]
     glow = nt.nodes["MT_Glow"]
     glow_lum = nt.nodes["MT_Glow_Lum"]
+    glow_thresh = nt.nodes["MT_Glow_Threshold"]
+    glow_clamp = nt.nodes["MT_Glow_Clamp"]
     glow_mul = nt.nodes["MT_Glow_Mul"]
     noise = nt.nodes["MT_Noise"]
     wave = nt.nodes["MT_Wave"]
@@ -816,14 +870,15 @@ def _set_values(nt, s):
 
     glow.inputs["Factor"].default_value = 1.0
     glow.inputs["Color2"].default_value = s.glow_color
-    glow_mul.inputs[1].default_value = s.emission
+    glow_thresh.inputs[1].default_value = s.glow_threshold
+    glow_mul.inputs[1].default_value = s.emission * s.glow_gain
     strength = bsdf.inputs.get("Emission Strength")
     if strength is not None:
         if s.glow_mask:
             _link_single(nt, strength, glow_mul.outputs["Value"])
         else:
             _link_single(nt, strength, None)
-            strength.default_value = s.emission
+            strength.default_value = s.emission * s.glow_gain
 
     bump.invert = s.relief_invert
     bump.inputs["Strength"].default_value = s.relief
@@ -852,14 +907,26 @@ def _set_values(nt, s):
     _set_input(bsdf, "Metallic", s.metallic)
     _set_input(bsdf, "Specular IOR Level", s.specular)
     _set_input(bsdf, "IOR", s.ior)
+    _set_input(bsdf, "Diffuse Roughness", s.diffuse_roughness)
+    _set_input(bsdf, "Specular Tint", s.specular_tint)
     _set_input(bsdf, "Coat Weight", s.coat)
     _set_input(bsdf, "Coat Roughness", s.coat_roughness)
+    _set_input(bsdf, "Coat IOR", s.coat_ior)
+    _set_input(bsdf, "Coat Tint", s.coat_tint)
     _set_input(bsdf, "Sheen Weight", s.sheen)
     _set_input(bsdf, "Sheen Roughness", s.sheen_roughness)
+    _set_input(bsdf, "Sheen Tint", s.sheen_tint)
     _set_input(bsdf, "Anisotropic", s.anisotropic)
+    _set_input(bsdf, "Anisotropic Rotation", s.anisotropic_rotation)
     _set_input(bsdf, "Subsurface Weight", s.subsurface)
+    _set_input(bsdf, "Subsurface Scale", s.subsurface_scale)
+    _set_input(bsdf, "Subsurface IOR", s.subsurface_ior)
+    _set_input(bsdf, "Subsurface Anisotropy", s.subsurface_anisotropy)
     _set_input(bsdf, "Transmission Weight", s.transmission)
     _set_input(bsdf, "Alpha", s.alpha)
+    _set_input(bsdf, "Thin Wall", s.thin_wall)
+    _set_input(bsdf, "Thin Film Thickness", s.thin_film_thickness)
+    _set_input(bsdf, "Thin Film IOR", s.thin_film_ior)
 
     _link_single(nt, out.inputs["Displacement"], displacement.outputs["Displacement"] if s.relief_mode == "DISPLACEMENT" else None)
 
@@ -1303,7 +1370,7 @@ def _apply_settings_dict(s, data):
             if prop is None:
                 continue
             try:
-                if key == "glow_color" and isinstance(value, list):
+                if isinstance(value, list) and key in {"glow_color", "specular_tint", "coat_tint", "sheen_tint"}:
                     value = tuple(value)
                 setattr(s, key, value)
             except Exception:
@@ -1516,12 +1583,38 @@ class MotionTextureSettings(bpy.types.PropertyGroup):
     transmission: bpy.props.FloatProperty(name="Transmission", min=0.0, max=1.0, default=0.0, subtype="FACTOR", update=_on_update)
     alpha: bpy.props.FloatProperty(name="Alpha", min=0.0, max=1.0, default=1.0, subtype="FACTOR", update=_on_update)
     normal_strength: bpy.props.FloatProperty(name="Normal Strength", min=0.0, max=3.0, default=1.0, update=_on_update)
+    diffuse_roughness: bpy.props.FloatProperty(name="Diffuse Roughness", min=0.0, max=1.0, default=0.0, subtype="FACTOR", update=_on_update)
+    specular_tint: bpy.props.FloatVectorProperty(
+        name="Specular Tint", subtype="COLOR", size=4, min=0.0, max=1.0,
+        default=(1.0, 1.0, 1.0, 1.0), update=_on_update,
+    )
+    coat_ior: bpy.props.FloatProperty(name="Coat IOR", min=1.0, max=3.0, default=1.5, update=_on_update)
+    coat_tint: bpy.props.FloatVectorProperty(
+        name="Coat Tint", subtype="COLOR", size=4, min=0.0, max=1.0,
+        default=(1.0, 1.0, 1.0, 1.0), update=_on_update,
+    )
+    sheen_tint: bpy.props.FloatVectorProperty(
+        name="Sheen Tint", subtype="COLOR", size=4, min=0.0, max=1.0,
+        default=(1.0, 1.0, 1.0, 1.0), update=_on_update,
+    )
+    anisotropic_rotation: bpy.props.FloatProperty(name="Anisotropic Rotation", min=0.0, max=1.0, default=0.0, subtype="FACTOR", update=_on_update)
+    subsurface_scale: bpy.props.FloatProperty(name="Subsurface Scale", min=0.0, max=2.0, default=0.05, update=_on_update)
+    subsurface_ior: bpy.props.FloatProperty(name="Subsurface IOR", min=1.0, max=3.0, default=1.4, update=_on_update)
+    subsurface_anisotropy: bpy.props.FloatProperty(name="Subsurface Anisotropy", min=0.0, max=1.0, default=0.0, subtype="FACTOR", update=_on_update)
+    thin_wall: bpy.props.BoolProperty(name="Thin Wall", default=False, update=_on_update)
+    thin_film_thickness: bpy.props.FloatProperty(name="Thin Film Thickness", min=0.0, max=2000.0, default=0.0, update=_on_update)
+    thin_film_ior: bpy.props.FloatProperty(name="Thin Film IOR", min=1.0, max=3.0, default=1.33, update=_on_update)
 
     emission: bpy.props.FloatProperty(name="Glow", min=0.0, max=5.0, default=0.0, update=_on_update)
     glow_mask: bpy.props.BoolProperty(name="Glow From Image", default=False, update=_on_update)
     glow_color: bpy.props.FloatVectorProperty(
         name="Glow Tint", subtype="COLOR", size=4, min=0.0, max=1.0,
         default=(1.0, 1.0, 1.0, 1.0), update=_on_update,
+    )
+    glow_gain: bpy.props.FloatProperty(name="Glow Gain", min=0.0, max=4.0, default=1.0, update=_on_update)
+    glow_threshold: bpy.props.FloatProperty(
+        name="Glow Threshold", min=0.0, max=1.0, default=0.0, subtype="FACTOR", update=_on_update,
+        description="Ignore dark parts of the image when glowing from the image",
     )
 
 
@@ -2185,6 +2278,9 @@ class MOTIONTEXTURE_OT_surface_preset(bpy.types.Operator):
         if not values:
             return {"CANCELLED"}
         with _suspend_updates():
+            for key in SURFACE_MATERIAL_KEYS:
+                if key in DEFAULTS:
+                    setattr(s, key, DEFAULTS[key])
             for key, value in values.items():
                 if key != "label":
                     setattr(s, key, value)
@@ -2940,11 +3036,17 @@ def _ui_surface(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    col.prop(s, "roughness", slider=True)
-    col.prop(s, "metallic", slider=True)
-    row = col.row(align=True)
+    box = col.box()
+    box.label(text="Base Surface", icon="MATERIAL")
+    box.prop(s, "roughness", slider=True)
+    box.prop(s, "metallic", slider=True)
+    row = box.row(align=True)
     row.prop(s, "specular", slider=True)
     row.prop(s, "ior", slider=True)
+    box = col.box()
+    box.label(text="Diffuse & Specular Tint", icon="SHADERFX")
+    box.prop(s, "diffuse_roughness", slider=True)
+    box.prop(s, "specular_tint", text="Specular Tint")
 
 
 def _ui_surface_advanced(layout, context, s):
@@ -2952,15 +3054,35 @@ def _ui_surface_advanced(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    col.prop(s, "coat", slider=True)
-    col.prop(s, "coat_roughness", slider=True)
-    row = col.row(align=True)
+    box = col.box()
+    box.label(text="Clear Coat", icon="MOD_FLUID")
+    box.prop(s, "coat", slider=True)
+    box.prop(s, "coat_roughness", slider=True)
+    box.prop(s, "coat_ior", slider=True)
+    box.prop(s, "coat_tint", text="Coat Tint")
+    box = col.box()
+    box.label(text="Fabric Sheen", icon="BRUSH_DATA")
+    row = box.row(align=True)
     row.prop(s, "sheen", slider=True)
     row.prop(s, "sheen_roughness", slider=True)
-    col.prop(s, "anisotropic", slider=True)
-    col.prop(s, "subsurface", slider=True)
-    col.prop(s, "transmission", slider=True)
-    col.prop(s, "alpha", slider=True)
+    box.prop(s, "sheen_tint", text="Sheen Tint")
+    box = col.box()
+    box.label(text="Anisotropy", icon="ORIENTATION_NORMAL")
+    box.prop(s, "anisotropic", slider=True)
+    box.prop(s, "anisotropic_rotation", slider=True)
+    box = col.box()
+    box.label(text="Subsurface", icon="MOD_SUBSURF")
+    box.prop(s, "subsurface", slider=True)
+    box.prop(s, "subsurface_scale", slider=True)
+    box.prop(s, "subsurface_ior", slider=True)
+    box.prop(s, "subsurface_anisotropy", slider=True)
+    box = col.box()
+    box.label(text="Glass & Thin Film", icon="SHADERFX")
+    box.prop(s, "transmission", slider=True)
+    box.prop(s, "alpha", slider=True)
+    box.prop(s, "thin_wall", toggle=True)
+    box.prop(s, "thin_film_thickness", slider=True)
+    box.prop(s, "thin_film_ior", slider=True)
 
 
 def _ui_color(layout, context, s):
@@ -3044,9 +3166,18 @@ def _ui_emission(layout, context, s):
         _no_mesh(layout)
         return
     col = layout.column()
-    col.prop(s, "emission", slider=True)
-    col.prop(s, "glow_mask", toggle=True)
-    col.prop(s, "glow_color", text="")
+    box = col.box()
+    box.label(text="Glow / Emission", icon="LIGHT")
+    box.prop(s, "emission", slider=True)
+    box.prop(s, "glow_color", text="Glow Tint")
+    box = col.box()
+    box.label(text="Glow Options", icon="SHADING_RENDERED")
+    box.prop(s, "glow_mask", toggle=True)
+    if s.glow_mask:
+        box.prop(s, "glow_gain", slider=True)
+        box.prop(s, "glow_threshold", slider=True)
+    else:
+        box.label(text="Tick 'Glow From Image' to mask", icon="INFO")
 
 
 def _ui_presets(layout, context, s):
