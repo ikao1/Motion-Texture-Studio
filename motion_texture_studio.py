@@ -2132,17 +2132,17 @@ def _draw_quick_start(menu, context):
     layout.separator()
 
     box = layout.box()
-    box.label(text="1) Load a source", icon="NUMBER_1")
+    box.label(text="1) Load a source", icon="FILE_IMAGE")
     box.label(text="Open a still, image sequence, or movie")
     box.label(text="from the '1) Source' panel.")
 
     box = layout.box()
-    box.label(text="2) Add motion", icon="NUMBER_2")
+    box.label(text="2) Add motion", icon="ANIM")
     box.label(text="In '3) Animate', tick Enable Animation,")
     box.label(text="or pick a Motion Style preset.")
 
     box = layout.box()
-    box.label(text="3) Apply", icon="NUMBER_3")
+    box.label(text="3) Apply", icon="CHECKMARK")
     box.label(text="Click Apply to Selected to build the")
     box.label(text="material on this object.")
 
@@ -2643,10 +2643,17 @@ def _bake_render(context, mode):
 
     scene = context.scene
     rd = scene.render
-    previous = (rd.filepath, rd.image_settings.file_format,
+    settings = rd.image_settings
+    had_media_type = hasattr(settings, "media_type")
+    previous = (rd.filepath, settings.file_format,
+                settings.media_type if had_media_type else None,
                 scene.frame_current, rd.use_overwrite)
     try:
-        rd.image_settings.file_format = "PNG"
+        # Blender 5.2 hides PNG behind the "Image" media type; if the artist
+        # left the output set to Video, setting file_format="PNG" fails.
+        if had_media_type:
+            settings.media_type = "IMAGE"
+        settings.file_format = "PNG"
         rd.use_overwrite = True
         for frame, target in targets:
             scene.frame_set(frame)
@@ -2656,9 +2663,11 @@ def _bake_render(context, mode):
         return "Render failed: %s" % exc
     finally:
         rd.filepath = previous[0]
-        rd.image_settings.file_format = previous[1]
-        rd.use_overwrite = previous[3]
-        scene.frame_current = previous[2]
+        if had_media_type and previous[2] is not None:
+            settings.media_type = previous[2]
+        settings.file_format = previous[1]
+        rd.use_overwrite = previous[4]
+        scene.frame_current = previous[3]
     return ""
 
 
@@ -3229,7 +3238,7 @@ class MOTIONTEXTURE_PT_main(bpy.types.Panel):
         header.operator("motiontexture.quick_start", text="", icon="QUESTION")
         box = layout.box()
         if s.image is None:
-            box.label(text="Step 1: Add your image/video", icon="NUMBER_1")
+            box.label(text="Step 1: Add your image/video", icon="FILE_IMAGE")
             box.label(text="Pick a still, sequence or movie:", icon="INFO")
             col = box.column(align=True)
             col.operator("motiontexture.open_still", text="Open Still Image", icon="FILE_IMAGE")
@@ -3241,10 +3250,10 @@ class MOTIONTEXTURE_PT_main(bpy.types.Panel):
 
         box = layout.box()
         if s.image is None:
-            box.label(text="Step 2: Add motion", icon="NUMBER_2")
+            box.label(text="Step 2: Add motion", icon="ANIM")
             box.label(text="Load a source first (Step 1).", icon="INFO")
         elif not s.enable_animation:
-            box.label(text="Step 2: Add motion", icon="NUMBER_2")
+            box.label(text="Step 2: Add motion", icon="ANIM")
             box.label(text="Open '3) Animate' below, then:", icon="INFO")
             box.label(text="  • tick Enable Animation", icon="DOT")
             box.label(text="  • or pick a Motion Style preset", icon="DOT")
@@ -3256,7 +3265,7 @@ class MOTIONTEXTURE_PT_main(bpy.types.Panel):
                 box.label(text="  Animation is enabled", icon="ANIM")
 
         box = layout.box()
-        box.label(text="Step 3: Apply to your object", icon="NUMBER_3")
+        box.label(text="Step 3: Apply to your object", icon="CHECKMARK")
         if s.image is None:
             box.label(text="Finish Step 1 first, then apply.", icon="INFO")
         else:
