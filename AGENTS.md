@@ -1,45 +1,20 @@
-# Midterm — working notes
+# Motion Texture Studio — working notes
 
-_Last updated: 2026-10-13_
+_Last updated: 2026-11-03_
 
-SVA "Programming for Animators" midterm. Deliverable = a Blender 5.2 add-on.
+SVA "Programming for Animators" midterm. Deliverable = the Blender 5.2 add-on in this repo.
 
-## ⚠️ RESOLVE FIRST: two conflicting proposals
-
-- **A. "2D-to-3D Parallax Tool"** — pointed to by ikao1 as *the* proposal.
-  Lives in GitHub **`ikao1/Midterm-Proposal`** (README.md; pushed 2026-10-13 03:58).
-  Flat drawing → artist cuts layers on the canvas → each cut becomes a real
-  textured mesh plane at an adjustable Z-depth → camera motion parallaxes them.
-- **B. "Lookdev Studio"** — older local draft at
-  `~/Desktop/pfa_midterm/README.md` (2026-10-12 20:41). Upgrades the week-5
-  Texture GUI into a layer stack + Look Library.
-
-A is newer and is the one ikao1 calls "the proposal", so treat **A (Parallax)**
-as authoritative — but **confirm before writing code**.
-
-## Still missing
-
-- **Instructor feedback: never received.** Asked once; ikao1 ended the session.
-  Get this at the very start of next session — it may change the direction.
-
-## Decisions made this session
-
-- The engineering spine is a **layer data model** (cut masks + per-layer params)
-  that the UI, live preview, rebuild, and export all read/write. Design it first.
-- Two unresolved design questions for proposal A:
-  1. Mask storage model — "full background plate + N cutouts on top" vs
-     "N disjoint tiles that reconstruct the image". These behave differently and
-     the rest of the tool depends on the choice.
-  2. Inpainting (the stated risk) → plan a **no-ML fallback** (edge-aware fill or
-     a duplicated background plate). Do not scope a diffusion model.
-- Target Blender **5.2 LTS**. Reuse the node-builder code from
-  `pfa_week_5/texture_gui.py` (v1.5.0) and the Week-5 self-check render pattern.
-
-## Next step
-
-1. Get instructor feedback + confirm the authoritative proposal (A vs B).
-2. Decide the mask storage model.
-3. Draft the layer data model + file layout. **No code yet.**
+- **Repo:** https://github.com/ikao1/Motion-Texture-Studio
+- **Add-on:** `motion_texture_studio.py` (v2.1.0)
+- **Verified:** Blender 5.2.1 LTS, fresh clone; 22 headless checks pass
+  (`tools/verify_fresh_clone.py`), and the GUI bake path was checked by hand.
+- **Demo:** `assets/motion_texture_studio_demo.mp4` (77 s), poster
+  `assets/demo_poster.png`.
+- **Known limits:** multi-material faces are not reassigned by Apply; Bake is a
+  camera-view OpenGL render; true displacement is Cycles-only; the sidebar
+  layout is long and not tuned for small windows.
+- **Build history:** Week 5 prototype in `ikao1/pfa_week_5`; midterm
+  checkpoint/peer run in `ikao1/Midterm-checkpoint-peer-run`.
 
 ## Rule — how to work with ikao1
 
