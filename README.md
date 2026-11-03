@@ -86,7 +86,7 @@ Sidebar tab **Motion Texture** (`N`), collapsible sections:
 
 1. **Find or build the graph.** It calls `_apply(context, rebuild=False, obj=obj)`, which creates the per-object material and node graph if needed, then gets the material with `_find_material(obj)`. A preset never operates on a half-built graph.
 2. **Clear the old animation.** `_reset_preset_curves(obj)` calls `animation_data_clear()` on the material node tree so a new preset re-keys cleanly instead of stacking on the previous one. (This also replaces hand-keyed material animation.)
-3. **Read the timing.** `_cycle_frames(s)` turns the Speed menu into a cycle length; at 1x it is 24 frames. The keys go at frames 1, 13, and 25.
+3. **Read the timing.** `_cycle_frames(s)` turns the Speed menu into a cycle length; at 1x it is 24 frames, so keys land at frame 1 and frame 25, with a midpoint at 13 for presets that need one.
 4. **Key node sockets, not the object.** For Scroll X it writes `MT_Map.Location` at frame 1 `(0,0,0)` and frame 25 `(1,0,0)` with `_key_socket`. The keys live on the material node tree's action, so the object's own transform and armature animation are untouched.
 5. **Repeat forever.** `_refresh_fcurve_modifiers` removes and rebuilds a `CYCLES` modifier on every curve (and a `STEPPED` modifier when On Twos is on). The cycle is 24 frames long, but it repeats for a shot of any length, which is why the scene end frame does not matter.
 6. **Keep the state consistent.** It sets `s.enable_animation = True` and `s.last_motion_preset` inside `_suspend_updates()`, so UI update callbacks do not recursively rebuild while the keys are being written.
