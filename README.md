@@ -132,7 +132,7 @@ Frame-accurate, non-blocking playback and caching of movie/image-sequence textur
 7. Select a mesh object (the default cube is fine). Click **Open Still…** and choose **`assets/test_texture.png`** or **`assets/demo_texture.png`**.
 8. Click **Apply to Selected**. The object now has a material called `MotionTexture_<objectname>`.
 9. Open the **Animate Texture** section and click a motion preset such as **Scroll X**. Set the scene end frame to ~48 and press **Play/Pause** — the texture scrolls in the viewport.
-10. For a sequence: **Open Image Sequence…** and pick the **first** file of a numbered sequence (`frame_0001.png`). The frame range is detected from the filenames.
+10. For a sequence: **Open Image Sequence…** and pick `assets/demo_sequence/frame_0001.png`. The frame range is detected from the filenames (12 frames here).
 11. For a movie: **Open Movie…** and pick a video file.
 
 If a movie or sequence codec will not load, use an **image sequence** instead — it is the more reliable path.
@@ -161,7 +161,7 @@ The 77-second MP4 is in `assets/` and is a screen capture from Blender 5.2.1: op
 1. **Fresh clone + install** (1 min): `git clone` the repo, Install from Disk, enable, open the sidebar.
 2. **Still → motion** (1 min): open `assets/test_texture.png`, Apply, click Scroll X, press Play; change Speed to show the cycle re-key.
 3. **Surface** (1 min): Fit to Object → Every Face; Raised Surface → Bump + Pulse; keep True Displacement off for EEVEE.
-4. **Sequence** (1 min): open `frame_0001.png` from a numbered sequence and show the auto-detected range; play.
+4. **Sequence** (1 min): open `assets/demo_sequence/frame_0001.png` and show the auto-detected 12-frame range; play.
 5. **Bake** (30 s): Bake Frame and open the PNG next to the source.
 6. **Code** (30 s): walk through `_apply_motion_preset` (above) — node-socket keys plus a CYCLES modifier.
 
